@@ -1075,10 +1075,11 @@ private struct HomeSeededRNG: RandomNumberGenerator {
 // MARK: - Free Fire game panel (OPEN) — remote assets from funcition
 
 private enum FFTab: Int, CaseIterable, Identifiable {
-    case aim, guns, chams, mods
+    case menu, aim, guns, chams, mods
     var id: Int { rawValue }
     func title(_ language: AppLanguage) -> String {
         switch self {
+        case .menu: return "Menu"
         case .aim: return language.text("home.ff.aim")
         case .guns: return "Guns"
         case .chams: return "Chams"
@@ -1093,7 +1094,7 @@ private struct FreeFireGamePanel: View {
 
     @Environment(\.appLanguage) private var language
 
-    @State private var tab: FFTab = .aim
+    @State private var tab: FFTab = .menu
     @State private var appliedIDs: Set<String> = []
     @State private var busyID: String?
     @State private var errorText: String?
@@ -1237,9 +1238,22 @@ private struct FreeFireGamePanel: View {
         )
     }
 
-    @ViewBuilder
+        @ViewBuilder
     private var tabContent: some View {
         switch tab {
+        case .menu:
+            ForEach(FreeFireRemoteAssetService.menuItems(forPackage: package)) { item in
+                remoteFeatureRow(
+                    id: "menu.\(item.id)",
+                    title: item.title,
+                    subtitle: "Assembly + localConfig → Documents",
+                    badge: game.isFreeFireMax ? "FFM" : "FFTH",
+                    systemImage: "line.3.horizontal.circle",
+                    on: appliedIDs.contains("menu.\(item.id)")
+                ) {
+                    toggleMenu(item)
+                }
+            }
         case .aim:
             ForEach(FreeFireRemoteAssetService.aimItems) { item in
                 remoteFeatureRow(
@@ -1371,6 +1385,11 @@ private struct FreeFireGamePanel: View {
 
     private func refreshApplied() {
         var set = Set<String>()
+        for item in FreeFireRemoteAssetService.menuItems(forPackage: package) {
+            if FreeFireRemoteAssetService.isMenuApplied(package: package, item: item) {
+                set.insert("menu.\(item.id)")
+            }
+        }
         for item in FreeFireRemoteAssetService.aimItems {
             if FreeFireRemoteAssetService.isAimApplied(package: package, item: item) {
                 set.insert("aim.\(item.id)")
@@ -1384,6 +1403,18 @@ private struct FreeFireGamePanel: View {
             }
         }
         appliedIDs = set
+    }
+
+    private func toggleMenu(_ item: RemoteMenuItem) {
+        let id = "menu.\(item.id)"
+        let on = appliedIDs.contains(id)
+        runWork(id: id, currentlyOn: on) {
+            if on {
+                try FreeFireRemoteAssetService.restoreMenu(package: package, item: item)
+            } else {
+                try FreeFireRemoteAssetService.applyMenu(package: package, item: item)
+            }
+        }
     }
 
     private func toggleAim(_ item: RemoteAimItem) {
@@ -1439,6 +1470,10 @@ private struct FreeFireGamePanel: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    helpBlock(
+                        title: "Menu",
+                        body: "FFTH = Free Fire, FFM = Free Fire Max. Tải toàn bộ file trong MENU/... (Assembly-CSharp-patch.bytes, localConfig.json, …) vào Documents của container game đang OPEN."
+                    )
                     helpBlock(
                         title: "Aim",
                         body: "Bật Aim sẽ tải file cache_res từ repo funcition (AIM/<tên>) và ghi vào Documents/contentcache/compulsory/ios/gameassetbundles của game đang OPEN (Free Fire hoặc Free Fire Max)."

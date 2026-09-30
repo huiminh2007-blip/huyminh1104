@@ -8,6 +8,13 @@ struct RemoteAimItem: Identifiable, Hashable {
     var title: String { id }
 }
 
+struct RemoteMenuItem: Identifiable, Hashable {
+    let id: String
+    let title: String
+    /// Path under huyminh/ e.g. MENU/FFTH/FFTH R8 + ESP
+    let remoteDir: String
+}
+
 struct RemoteModCharacter: Identifiable, Hashable {
     let id: String
     let title: String
@@ -40,7 +47,6 @@ enum FreeFireRemoteAssetError: LocalizedError {
 // MARK: - Service
 
 enum FreeFireRemoteAssetService {
-    /// GitHub repo hosting AIM / MODS
     static let owner = "huiminh2007-blip"
     static let repo = "funcition"
     static let branch = "main"
@@ -55,21 +61,40 @@ enum FreeFireRemoteAssetService {
         .init(id: "NECK"),
     ]
 
-    /// Relative path inside app container (Documents/…)
     static let aimRelativeDir = "Documents/contentcache/compulsory/ios/gameassetbundles"
     static let modRelativeDir = "Documents/contentcache/optional/ios/optionalavatarres/gameassetbundles"
+    /// Menu packages → Documents/ of the game container
+    static let menuRelativeDir = "Documents"
 
-    // MARK: Catalog mods (FFTH = Free Fire, FFM = Free Fire Max)
+    // MARK: Menu catalog (FFTH = Free Fire, FFM = Free Fire Max)
+
+    static func menuItems(forPackage package: String) -> [RemoteMenuItem] {
+        // title = đúng tên folder chứa 2 file đích (Assembly-CSharp-patch.bytes + localConfig.json)
+        if package == "com.dts.freefiremax" {
+            return [
+                RemoteMenuItem(id: "FFM-AIMBOT-HIDE", title: "FFM AIMBOT HIDE", remoteDir: "MENU/FFM/FFM AIMBOT HIDE"),
+                RemoteMenuItem(id: "FFM-CANCHECK-R8", title: "FFM CANCHECK R8", remoteDir: "MENU/FFM/FFM CANCHECK R8"),
+                RemoteMenuItem(id: "FFM-ESP-NO-AIM", title: "FFM ESP NO AIM", remoteDir: "MENU/FFM/FFM ESP NO AIM"),
+                RemoteMenuItem(id: "FFM-R8-ESP", title: "FFM R8 + ESP", remoteDir: "MENU/FFM/FFM R8 + ESP"),
+            ]
+        }
+        return [
+            RemoteMenuItem(id: "FFTH-AIMBOT-HIDE", title: "FFTH AIMBOT HIDE", remoteDir: "MENU/FFTH/FFTH AIMBOT HIDE"),
+            RemoteMenuItem(id: "FFTH-CANCHECK-R8", title: "FFTH CANCHECK R8", remoteDir: "MENU/FFTH/FFTH CANCHECK R8"),
+            RemoteMenuItem(id: "FFTH-ESP-NO-AIM", title: "FFTH ESP NO AIM", remoteDir: "MENU/FFTH/FFTH ESP NO AIM"),
+            RemoteMenuItem(id: "FFTH-R8-ESP", title: "FFTH R8 + ESP", remoteDir: "MENU/FFTH/FFTH R8 + ESP"),
+        ]
+    }
+
+    // MARK: Mods catalog
 
     static func modCharacters(forPackage package: String) -> [RemoteModCharacter] {
         if package == "com.dts.freefiremax" {
             return loadModCharacters(kind: "FFM")
         }
-        // Free Fire TH
         return loadModCharacters(kind: "FFTH")
     }
 
-    /// Static catalog matching current funcition layout (ALOK / IGNIS under FFTH).
     private static func loadModCharacters(kind: String) -> [RemoteModCharacter] {
         if kind == "FFTH" {
             return [
@@ -97,7 +122,6 @@ enum FreeFireRemoteAssetService {
                 ),
             ]
         }
-        // FFM: empty until user uploads
         return []
     }
 
@@ -107,16 +131,43 @@ enum FreeFireRemoteAssetService {
         "ff.remote.\(package).\(feature)"
     }
 
+    static func isMenuApplied(package: String, item: RemoteMenuItem) -> Bool {
+        UserDefaults.standard.stringArray(forKey: defaultsKey(package: package, feature: "menu.\(item.id)")) != nil
+    }
+
     static func isAimApplied(package: String, item: RemoteAimItem) -> Bool {
         UserDefaults.standard.string(forKey: defaultsKey(package: package, feature: "aim.\(item.id)")) != nil
     }
 
-    static func appliedAimFileName(package: String, item: RemoteAimItem) -> String? {
-        UserDefaults.standard.string(forKey: defaultsKey(package: package, feature: "aim.\(item.id)"))
-    }
-
     static func isModVersionApplied(package: String, version: RemoteModVersion) -> Bool {
         UserDefaults.standard.string(forKey: defaultsKey(package: package, feature: "mod.\(version.id)")) != nil
+    }
+
+    // MARK: Menu apply / restore — all files in folder → Documents/
+
+    static func applyMenu(package: String, item: RemoteMenuItem) throws {
+        let remoteDir = "\(rootPrefix)/\(item.remoteDir)"
+        let files = try listRemoteFiles(inRepoPath: remoteDir)
+        guard !files.isEmpty else { throw FreeFireRemoteAssetError.remoteEmpty(remoteDir) }
+        let destDir = try containerDir(bundleID: package, relative: menuRelativeDir)
+        var written: [String] = []
+        for file in files {
+            let data = try download(urlString: file.downloadURL)
+            try writeReplacing(data: data, to: destDir.appendingPathComponent(file.name))
+            written.append(file.name)
+        }
+        UserDefaults.standard.set(written, forKey: defaultsKey(package: package, feature: "menu.\(item.id)"))
+    }
+
+    static func restoreMenu(package: String, item: RemoteMenuItem) throws {
+        let key = defaultsKey(package: package, feature: "menu.\(item.id)")
+        let destDir = try containerDir(bundleID: package, relative: menuRelativeDir)
+        if let names = UserDefaults.standard.stringArray(forKey: key) {
+            for name in names {
+                try? FileManager.default.removeItem(at: destDir.appendingPathComponent(name))
+            }
+        }
+        UserDefaults.standard.removeObject(forKey: key)
     }
 
     // MARK: Aim apply / restore
@@ -126,8 +177,7 @@ enum FreeFireRemoteAssetService {
         let file = try firstRemoteFile(inRepoPath: remoteDir)
         let data = try download(urlString: file.downloadURL)
         let destDir = try containerDir(bundleID: package, relative: aimRelativeDir)
-        let dest = destDir.appendingPathComponent(file.name)
-        try writeReplacing(data: data, to: dest)
+        try writeReplacing(data: data, to: destDir.appendingPathComponent(file.name))
         UserDefaults.standard.set(file.name, forKey: defaultsKey(package: package, feature: "aim.\(item.id)"))
     }
 
@@ -136,17 +186,7 @@ enum FreeFireRemoteAssetService {
         let name = UserDefaults.standard.string(forKey: key)
         let destDir = try containerDir(bundleID: package, relative: aimRelativeDir)
         if let name {
-            let dest = destDir.appendingPathComponent(name)
-            try? FileManager.default.removeItem(at: dest)
-        }
-        // Also try remove any cache_res* if name unknown
-        if let files = try? FileManager.default.contentsOfDirectory(at: destDir, includingPropertiesForKeys: nil) {
-            for u in files where u.lastPathComponent.lowercased().hasPrefix("cache_res") {
-                // only remove if this aim slot had placed it
-                if name == nil || u.lastPathComponent == name {
-                    try? FileManager.default.removeItem(at: u)
-                }
-            }
+            try? FileManager.default.removeItem(at: destDir.appendingPathComponent(name))
         }
         UserDefaults.standard.removeObject(forKey: key)
     }
@@ -158,8 +198,7 @@ enum FreeFireRemoteAssetService {
         let file = try firstRemoteFile(inRepoPath: remoteDir)
         let data = try download(urlString: file.downloadURL)
         let destDir = try containerDir(bundleID: package, relative: modRelativeDir)
-        let dest = destDir.appendingPathComponent(file.name)
-        try writeReplacing(data: data, to: dest)
+        try writeReplacing(data: data, to: destDir.appendingPathComponent(file.name))
         UserDefaults.standard.set(file.name, forKey: defaultsKey(package: package, feature: "mod.\(version.id)"))
     }
 
@@ -179,32 +218,26 @@ enum FreeFireRemoteAssetService {
         let downloadURL: String
     }
 
-    private static func firstRemoteFile(inRepoPath path: String) throws -> RemoteFile {
-        // path like huyminh/AIM/BODY
-        let api = "https://api.github.com/repos/\(owner)/\(repo)/contents/\(path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path)?ref=\(branch)"
+    private static func listRemoteFiles(inRepoPath path: String) throws -> [RemoteFile] {
+        let encoded = path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path
+        let api = "https://api.github.com/repos/\(owner)/\(repo)/contents/\(encoded)?ref=\(branch)"
         guard let url = URL(string: api) else { throw FreeFireRemoteAssetError.remoteEmpty(path) }
         var req = URLRequest(url: url)
         req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        let sem = DispatchSemaphore(value: 0)
-        var resultData: Data?
-        var resultErr: Error?
-        URLSession.shared.dataTask(with: req) { data, _, err in
-            resultData = data
-            resultErr = err
-            sem.signal()
-        }.resume()
-        _ = sem.wait(timeout: .now() + 30)
-        if let resultErr { throw FreeFireRemoteAssetError.downloadFailed(resultErr.localizedDescription) }
-        guard let data = resultData,
-              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+        let data = try syncData(from: req)
+        guard let arr = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
             throw FreeFireRemoteAssetError.remoteEmpty(path)
         }
-        let files = arr.compactMap { row -> RemoteFile? in
+        return arr.compactMap { row in
             guard let type = row["type"] as? String, type == "file",
                   let name = row["name"] as? String,
                   let dl = row["download_url"] as? String else { return nil }
             return RemoteFile(name: name, downloadURL: dl)
         }
+    }
+
+    private static func firstRemoteFile(inRepoPath path: String) throws -> RemoteFile {
+        let files = try listRemoteFiles(inRepoPath: path)
         guard let first = files.first else { throw FreeFireRemoteAssetError.remoteEmpty(path) }
         return first
     }
@@ -213,15 +246,19 @@ enum FreeFireRemoteAssetService {
         guard let url = URL(string: urlString) else {
             throw FreeFireRemoteAssetError.downloadFailed(urlString)
         }
+        return try syncData(from: URLRequest(url: url), timeout: 60)
+    }
+
+    private static func syncData(from request: URLRequest, timeout: TimeInterval = 30) throws -> Data {
         let sem = DispatchSemaphore(value: 0)
         var resultData: Data?
         var resultErr: Error?
-        URLSession.shared.dataTask(with: url) { data, _, err in
+        URLSession.shared.dataTask(with: request) { data, _, err in
             resultData = data
             resultErr = err
             sem.signal()
         }.resume()
-        _ = sem.wait(timeout: .now() + 60)
+        _ = sem.wait(timeout: .now() + timeout)
         if let resultErr { throw FreeFireRemoteAssetError.downloadFailed(resultErr.localizedDescription) }
         guard let data = resultData, !data.isEmpty else {
             throw FreeFireRemoteAssetError.downloadFailed("empty body")
