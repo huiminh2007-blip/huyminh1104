@@ -17,7 +17,6 @@
 
 
 		3105K101 /* FreeFireAimToggleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105K100; };
-		3105K316 /* catalog.json in Resources */ = {isa = PBXBuildFile; fileRef = 3105K306; };
 
 		3105A200 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105A020; };
 		3105A201 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105A021; };
@@ -95,7 +94,6 @@
 
 		3105K100 /* FreeFireAimToggleService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeFireAimToggleService.swift; sourceTree = "<group>"; };
 		FFREMOTE11 /* FreeFireRemoteAssetService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeFireRemoteAssetService.swift; sourceTree = "<group>"; };
-		3105K306 /* catalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = catalog.json; sourceTree = "<group>"; };
 
 		3105A010 /* beu.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "beu.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		3105A020 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
@@ -190,24 +188,8 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-			isa = PBXGroup;
-			children = (
-			);
-			sourceTree = "<group>";
-		};
 
-			isa = PBXGroup;
-			children = (
-			);
-			sourceTree = "<group>";
-		};
 
-			isa = PBXGroup;
-			children = (
-				3105K306 /* catalog.json */,
-			);
-			sourceTree = "<group>";
-		};
 
 		3105A400 = {
 			isa = PBXGroup;
