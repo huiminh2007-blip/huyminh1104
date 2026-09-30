@@ -1,0 +1,20 @@
+[
+  {
+    "id": "chams_sung_den",
+    "title": "Chams súng đen trắng",
+    "resource": "Chams_Sung_Den_Trang.1411",
+    "kind": "gun"
+  },
+  {
+    "id": "chams_nhan_vat",
+    "title": "Chams Nhân Vật",
+    "resource": "Chams_Nhan_Vat.1411",
+    "kind": "character"
+  },
+  {
+    "id": "chams_sung_do",
+    "title": "Chams súng đỏ trắng",
+    "resource": "Chams_Sung_Do_Trang.1411",
+    "kind": "gun"
+  }
+]

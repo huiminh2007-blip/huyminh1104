@@ -1,0 +1,27 @@
+[
+  {
+    "id": "aim_body",
+    "title": "Aim Body",
+    "resource": "Aim_Body.1411"
+  },
+  {
+    "id": "aim_co",
+    "title": "Aim Cổ",
+    "resource": "Aim_Co.1411"
+  },
+  {
+    "id": "aim_keo",
+    "title": "Aim Kéo",
+    "resource": "Aim_Keo.1411"
+  },
+  {
+    "id": "aim_nguc",
+    "title": "Aim Ngực",
+    "resource": "Aim_Nguc.1411"
+  },
+  {
+    "id": "magic_bullet",
+    "title": "Magic Bullet",
+    "resource": "Magic_Bullet.1411"
+  }
+]

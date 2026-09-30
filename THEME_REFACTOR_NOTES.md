@@ -1,0 +1,1 @@
+Beu central Theme refactor: BeuTheme is injected through SwiftUI Environment; Accent is propagated through navigation; file/folder icons use Accent and no circular backgrounds; status colors remain separate; shared radius tokens are used for UI surfaces.

@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /keys/{keyId} {
+      // The app only needs single-document reads after Anonymous Auth.
+      allow get: if request.auth != null
+                 && resource.data.get("allowed", false) == true
+                 && (
+                   resource.data.get("authUID", "") == ""
+                   || resource.data.get("authUID", "") == request.auth.uid
+                   || resource.data.get("deviceID", "") != ""
+                 );
+
+      // Bind an unbound key, or refresh its boundAt/device metadata without
+      // changing ownership after authUID has been assigned.
+      allow update: if request.auth != null
+        && resource.data.get("allowed", false) == true
+        && request.resource.data.get("allowed", false) == resource.data.get("allowed", false)
+        && request.resource.data.get("authUID", "") == request.auth.uid
+        && (
+          resource.data.get("authUID", "") == ""
+          || resource.data.get("authUID", "") == request.auth.uid
+        )
+        && (
+          resource.data.get("deviceID", "") == ""
+          || request.resource.data.get("deviceID", "") == resource.data.get("deviceID", "")
+        )
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(["deviceID", "authUID", "boundAt"]);
+
+      allow create, delete, list: if false;
+    }
+  }
+}
