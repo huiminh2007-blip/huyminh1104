@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		FFREMOTE01 /* FreeFireRemoteAssetService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFREMOTE11; };
 		BEUSND01 /* ui_click.caf in Resources */ = {isa = PBXBuildFile; fileRef = BEUSND11; };
 		BEUSND02 /* ui_double.caf in Resources */ = {isa = PBXBuildFile; fileRef = BEUSND12; };
 		BEUSND03 /* ui_unclick.caf in Resources */ = {isa = PBXBuildFile; fileRef = BEUSND13; };
@@ -116,6 +117,7 @@
 		3105L304 /* chams_catalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = chams_catalog.json; sourceTree = "<group>"; };
 
 		3105K100 /* FreeFireAimToggleService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeFireAimToggleService.swift; sourceTree = "<group>"; };
+		FFREMOTE11 /* FreeFireRemoteAssetService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeFireRemoteAssetService.swift; sourceTree = "<group>"; };
 		3105K301 /* Aim_Body.1411 */ = {isa = PBXFileReference; lastKnownFileType = file; path = Aim_Body.1411; sourceTree = "<group>"; };
 		3105K302 /* Aim_Co.1411 */ = {isa = PBXFileReference; lastKnownFileType = file; path = Aim_Co.1411; sourceTree = "<group>"; };
 		3105K303 /* Aim_Keo.1411 */ = {isa = PBXFileReference; lastKnownFileType = file; path = Aim_Keo.1411; sourceTree = "<group>"; };
@@ -348,6 +350,7 @@
 				3105B117 /* PatchTransaction.swift */,
 				3105B118 /* DevicePatchService.swift */,
 				3105K100 /* FreeFireAimToggleService.swift */,
+				FFREMOTE11 /* FreeFireRemoteAssetService.swift */,
 				3105B119 /* PatchProjectLibrary.swift */,
 				3105B120 /* PatchProjectStore.swift */,
 				3105G103 /* PatchWorkspaceService.swift */,
@@ -508,6 +511,7 @@
 				3105B217,
 				3105B218,
 				3105K101,
+				FFREMOTE01,
 				3105B219,
 				3105B220,
 				3105B221,

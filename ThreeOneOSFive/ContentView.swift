@@ -1072,7 +1072,7 @@ private struct HomeSeededRNG: RandomNumberGenerator {
 }
 
 
-// MARK: - Free Fire game panel (OPEN)
+// MARK: - Free Fire game panel (OPEN) — remote assets from funcition
 
 private enum FFTab: Int, CaseIterable, Identifiable {
     case aim, guns, chams, mods
@@ -1100,9 +1100,10 @@ private struct FreeFireGamePanel: View {
     @State private var infoText: String?
     @State private var showHelp = false
 
+    private var package: String { game.package }
+
     var body: some View {
         ZStack {
-            // Same atmosphere as home
             Color.black.ignoresSafeArea()
             Group {
                 if UIImage(named: "LoginBackground") != nil {
@@ -1127,39 +1128,34 @@ private struct FreeFireGamePanel: View {
                     .padding(.top, 8)
                     .padding(.bottom, 12)
 
-                if game.isFreeFireMax {
-                    emptyMax
-                } else {
-                    tabBar
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 12)
+                tabBar
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
 
-                    ScrollView {
-                        VStack(spacing: 10) {
-                            tabContent
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 28)
+                ScrollView {
+                    VStack(spacing: 10) {
+                        tabContent
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 28)
+                }
 
-                    if let errorText {
-                        Text(errorText)
-                            .font(.system(size: 12))
-                            .foregroundStyle(Color.red.opacity(0.9))
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 8)
-                    }
-                    if let infoText {
-                        Text(infoText)
-                            .font(.system(size: 12))
-                            .foregroundStyle(Color.green.opacity(0.85))
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 8)
-                    }
+                if let errorText {
+                    Text(errorText)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.red.opacity(0.9))
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
+                }
+                if let infoText {
+                    Text(infoText)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color(red: 0.30, green: 0.90, blue: 0.50))
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
                 }
             }
         }
-        .preferredColorScheme(.dark)
         .onAppear { refreshApplied() }
         .sheet(isPresented: $showHelp) {
             helpSheet
@@ -1229,7 +1225,7 @@ private struct FreeFireGamePanel: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .background(
-                            Capsule().fill(tab == item ? Color.white : Color.clear)
+                            Capsule().fill(tab == item ? Color.white : Color.white.opacity(0.08))
                         )
                 }
                 .buttonStyle(.plain)
@@ -1237,97 +1233,84 @@ private struct FreeFireGamePanel: View {
         }
         .padding(4)
         .background(
-            Capsule()
-                .fill(Color.black.opacity(0.45))
-                .background(Capsule().fill(.ultraThinMaterial.opacity(0.35)))
+            Capsule().fill(Color.black.opacity(0.35))
         )
-        .overlay(
-            Capsule().stroke(Color.white.opacity(0.12), lineWidth: 1)
-        )
-        .clipShape(Capsule())
     }
 
     @ViewBuilder
     private var tabContent: some View {
         switch tab {
         case .aim:
-            ForEach(FreeFireAimToggleService.patches) { patch in
-                featureRow(
-                    id: patch.id,
-                    title: patch.title,
-                    subtitle: "cache",
-                    badge: "FREE",
-                    systemImage: "scope"
+            ForEach(FreeFireRemoteAssetService.aimItems) { item in
+                remoteFeatureRow(
+                    id: "aim.\(item.id)",
+                    title: item.title,
+                    subtitle: "cache_res → gameassetbundles",
+                    badge: "REMOTE",
+                    systemImage: "scope",
+                    on: appliedIDs.contains("aim.\(item.id)")
                 ) {
-                    toggleAim(patch)
+                    toggleAim(item)
                 }
             }
         case .guns:
-            ForEach(FreeFireChamsToggleService.patches.filter { $0.kind == .gun }) { patch in
-                featureRow(
-                    id: patch.id,
-                    title: patch.title,
-                    subtitle: "guns",
-                    badge: "FREE",
-                    systemImage: "checkmark.shield.fill"
-                ) {
-                    toggleChams(patch)
-                }
-            }
+            emptyCategory(title: "Guns")
         case .chams:
-            ForEach(FreeFireChamsToggleService.patches.filter { $0.kind == .character }) { patch in
-                featureRow(
-                    id: patch.id,
-                    title: patch.title,
-                    subtitle: "cache",
-                    badge: "FREE",
-                    systemImage: "checkmark.shield.fill"
-                ) {
-                    toggleChams(patch)
-                }
-            }
+            emptyCategory(title: "Chams")
         case .mods:
-            ForEach(FreeFireModsToggleService.patches) { patch in
-                featureRow(
-                    id: patch.id,
-                    title: patch.title,
-                    subtitle: "mods",
-                    badge: "FREE",
-                    systemImage: "checkmark.shield.fill"
-                ) {
-                    toggleMod(patch)
+            let characters = FreeFireRemoteAssetService.modCharacters(forPackage: package)
+            if characters.isEmpty {
+                emptyCategory(title: game.isFreeFireMax ? "MODS FFM (trống)" : "MODS FFTH (trống)")
+            } else {
+                ForEach(characters) { ch in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(ch.title)
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.top, 6)
+                        ForEach(ch.versions) { ver in
+                            remoteFeatureRow(
+                                id: "mod.\(ver.id)",
+                                title: "\(ch.title) — \(ver.title)",
+                                subtitle: ver.remoteDir,
+                                badge: game.isFreeFireMax ? "FFM" : "FFTH",
+                                systemImage: "checkmark.shield.fill",
+                                on: appliedIDs.contains("mod.\(ver.id)")
+                            ) {
+                                toggleMod(ver)
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 
-    private var emptyMax: some View {
-        VStack(spacing: 12) {
-            Spacer()
+    private func emptyCategory(title: String) -> some View {
+        VStack(spacing: 10) {
             Image(systemName: "tray")
-                .font(.system(size: 40, weight: .light))
+                .font(.system(size: 28, weight: .light))
                 .foregroundStyle(.white.opacity(0.3))
-            Text("Free Fire Max")
-                .font(.system(size: 17, weight: .bold))
-                .foregroundStyle(.white.opacity(0.7))
-            Text(language.text("home.coming_soon_message", game.title))
-                .font(.system(size: 13))
-                .foregroundStyle(.white.opacity(0.4))
-                .multilineTextAlignment(.center)
-            Spacer()
+            Text(title)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.5))
+            Text(language == .vietnamese ? "Đang trống" : "Empty")
+                .font(.system(size: 12))
+                .foregroundStyle(.white.opacity(0.35))
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
     }
 
-    private func featureRow(
+    private func remoteFeatureRow(
         id: String,
         title: String,
         subtitle: String,
         badge: String,
         systemImage: String,
+        on: Bool,
         onToggle: @escaping () -> Void
     ) -> some View {
-        let on = appliedIDs.contains(id)
         let busy = busyID == id
         return HStack(spacing: 12) {
             ZStack {
@@ -1337,9 +1320,7 @@ private struct FreeFireGamePanel: View {
                 Image(systemName: systemImage)
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(.white)
-                    .symbolRenderingMode(.hierarchical)
             }
-
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(title)
@@ -1353,8 +1334,9 @@ private struct FreeFireGamePanel: View {
                         .background(Capsule().fill(Color.white.opacity(0.12)))
                 }
                 Text(subtitle)
-                    .font(.system(size: 11))
+                    .font(.system(size: 10))
                     .foregroundStyle(.white.opacity(0.4))
+                    .lineLimit(1)
             }
             Spacer()
             if busy {
@@ -1389,49 +1371,46 @@ private struct FreeFireGamePanel: View {
 
     private func refreshApplied() {
         var set = Set<String>()
-        for p in FreeFireAimToggleService.patches where FreeFireAimToggleService.isApplied(patch: p) {
-            set.insert(p.id)
+        for item in FreeFireRemoteAssetService.aimItems {
+            if FreeFireRemoteAssetService.isAimApplied(package: package, item: item) {
+                set.insert("aim.\(item.id)")
+            }
         }
-        for p in FreeFireChamsToggleService.patches where FreeFireChamsToggleService.isApplied(patch: p) {
-            set.insert(p.id)
-        }
-        for p in FreeFireModsToggleService.patches where FreeFireModsToggleService.isApplied(patch: p) {
-            set.insert(p.id)
+        for ch in FreeFireRemoteAssetService.modCharacters(forPackage: package) {
+            for ver in ch.versions {
+                if FreeFireRemoteAssetService.isModVersionApplied(package: package, version: ver) {
+                    set.insert("mod.\(ver.id)")
+                }
+            }
         }
         appliedIDs = set
     }
 
-    private func toggleAim(_ patch: BundledAimPatch) {
-        runToggle(id: patch.id, currentlyOn: appliedIDs.contains(patch.id)) {
-            if appliedIDs.contains(patch.id) {
-                try FreeFireAimToggleService.restore(patch: patch)
+    private func toggleAim(_ item: RemoteAimItem) {
+        let id = "aim.\(item.id)"
+        let on = appliedIDs.contains(id)
+        runWork(id: id, currentlyOn: on) {
+            if on {
+                try FreeFireRemoteAssetService.restoreAim(package: package, item: item)
             } else {
-                try FreeFireAimToggleService.apply(patch: patch)
+                try FreeFireRemoteAssetService.applyAim(package: package, item: item)
             }
         }
     }
 
-    private func toggleChams(_ patch: BundledChamsPatch) {
-        runToggle(id: patch.id, currentlyOn: appliedIDs.contains(patch.id)) {
-            if appliedIDs.contains(patch.id) {
-                try FreeFireChamsToggleService.restore(patch: patch)
+    private func toggleMod(_ ver: RemoteModVersion) {
+        let id = "mod.\(ver.id)"
+        let on = appliedIDs.contains(id)
+        runWork(id: id, currentlyOn: on) {
+            if on {
+                try FreeFireRemoteAssetService.restoreMod(package: package, version: ver)
             } else {
-                try FreeFireChamsToggleService.apply(patch: patch)
+                try FreeFireRemoteAssetService.applyMod(package: package, version: ver)
             }
         }
     }
 
-    private func toggleMod(_ patch: BundledModPatch) {
-        runToggle(id: patch.id, currentlyOn: appliedIDs.contains(patch.id)) {
-            if appliedIDs.contains(patch.id) {
-                try FreeFireModsToggleService.restore(patch: patch)
-            } else {
-                try FreeFireModsToggleService.apply(patch: patch)
-            }
-        }
-    }
-
-    private func runToggle(id: String, currentlyOn: Bool, work: @escaping () throws -> Void) {
+    private func runWork(id: String, currentlyOn: Bool, work: @escaping () throws -> Void) {
         guard busyID == nil else { return }
         errorText = nil
         infoText = nil
@@ -1442,7 +1421,9 @@ private struct FreeFireGamePanel: View {
                 DispatchQueue.main.async {
                     busyID = nil
                     refreshApplied()
-                    infoText = currentlyOn ? (language == .vietnamese ? "Đã tắt" : "Disabled") : (language == .vietnamese ? "Đã bật" : "Enabled")
+                    infoText = currentlyOn
+                        ? (language == .vietnamese ? "Đã tắt" : "Disabled")
+                        : (language == .vietnamese ? "Đã bật / đã tải" : "Enabled / downloaded")
                 }
             } catch {
                 DispatchQueue.main.async {
@@ -1459,20 +1440,16 @@ private struct FreeFireGamePanel: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     helpBlock(
-                        title: language.text("home.ff.aim_help_title"),
-                        body: language.text("home.ff.aim_help_message")
+                        title: "Aim",
+                        body: "Bật Aim sẽ tải file cache_res từ repo funcition (AIM/<tên>) và ghi vào Documents/contentcache/compulsory/ios/gameassetbundles của game đang OPEN (Free Fire hoặc Free Fire Max)."
                     )
                     helpBlock(
-                        title: language.text("home.ff.chams_help_title"),
-                        body: language.text("home.ff.chams_help_message")
+                        title: "Guns / Chams",
+                        body: "Hiện đang để trống."
                     )
                     helpBlock(
-                        title: language.text("home.ff.mods_help_title"),
-                        body: language.text("home.ff.mods_help_message")
-                    )
-                    helpBlock(
-                        title: language.text("home.ff.other"),
-                        body: language.text("home.ff.category_empty", language.text("home.ff.other"))
+                        title: "Mods",
+                        body: "FFTH = Free Fire, FFM = Free Fire Max. File ghi vào Documents/contentcache/optional/ios/optionalavatarres/gameassetbundles. ALOK / IGNIS có các bản V1, V2…"
                     )
                 }
                 .padding(20)
@@ -1481,13 +1458,12 @@ private struct FreeFireGamePanel: View {
             .navigationTitle(language.text("home.ff.help"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button(language == .vietnamese ? "Đóng" : "Close") { showHelp = false }
                 }
             }
         }
         .preferredColorScheme(.dark)
-        .presentationDetents([.medium, .large])
     }
 
     private func helpBlock(title: String, body: String) -> some View {
@@ -1511,7 +1487,6 @@ private struct FreeFireGamePanel: View {
                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
     }
-
 }
 
 
