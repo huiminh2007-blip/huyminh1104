@@ -14,23 +14,9 @@
 		BEUSND04 /* ui_click.wav in Resources */ = {isa = PBXBuildFile; fileRef = BEUSND14; };
 		BEUSND05 /* ui_double.wav in Resources */ = {isa = PBXBuildFile; fileRef = BEUSND15; };
 		BEUSND06 /* ui_unclick.wav in Resources */ = {isa = PBXBuildFile; fileRef = BEUSND16; };
-		3105M311 /* Quai_Nhan_Den.1411 in Resources */ = {isa = PBXBuildFile; fileRef = 3105M301; };
-		3105M312 /* Gojo_Wolfrahh.1411 in Resources */ = {isa = PBXBuildFile; fileRef = 3105M302; };
-		3105M313 /* Quai_Nhan_Den.png in Resources */ = {isa = PBXBuildFile; fileRef = 3105M303; };
-		3105M314 /* Gojo_Wolfrahh.png in Resources */ = {isa = PBXBuildFile; fileRef = 3105M304; };
-		3105M315 /* mods_catalog.json in Resources */ = {isa = PBXBuildFile; fileRef = 3105M305; };
 
-		3105L311 /* Chams_Nhan_Vat.1411 in Resources */ = {isa = PBXBuildFile; fileRef = 3105L301; };
-		3105L312 /* Chams_Sung_Den_Trang.1411 in Resources */ = {isa = PBXBuildFile; fileRef = 3105L302; };
-		3105L313 /* Chams_Sung_Do_Trang.1411 in Resources */ = {isa = PBXBuildFile; fileRef = 3105L303; };
-		3105L314 /* chams_catalog.json in Resources */ = {isa = PBXBuildFile; fileRef = 3105L304; };
 
 		3105K101 /* FreeFireAimToggleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105K100; };
-		3105K311 /* Aim_Body.1411 in Resources */ = {isa = PBXBuildFile; fileRef = 3105K301; };
-		3105K312 /* Aim_Co.1411 in Resources */ = {isa = PBXBuildFile; fileRef = 3105K302; };
-		3105K313 /* Aim_Keo.1411 in Resources */ = {isa = PBXBuildFile; fileRef = 3105K303; };
-		3105K314 /* Aim_Nguc.1411 in Resources */ = {isa = PBXBuildFile; fileRef = 3105K304; };
-		3105K315 /* Magic_Bullet.1411 in Resources */ = {isa = PBXBuildFile; fileRef = 3105K305; };
 		3105K316 /* catalog.json in Resources */ = {isa = PBXBuildFile; fileRef = 3105K306; };
 
 		3105A200 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105A020; };
@@ -99,11 +85,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		3105M301 /* Quai_Nhan_Den.1411 */ = {isa = PBXFileReference; lastKnownFileType = file; path = Quai_Nhan_Den.1411; sourceTree = "<group>"; };
-		3105M302 /* Gojo_Wolfrahh.1411 */ = {isa = PBXFileReference; lastKnownFileType = file; path = Gojo_Wolfrahh.1411; sourceTree = "<group>"; };
-		3105M303 /* Quai_Nhan_Den.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Quai_Nhan_Den.png; sourceTree = "<group>"; };
-		3105M304 /* Gojo_Wolfrahh.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Gojo_Wolfrahh.png; sourceTree = "<group>"; };
-		3105M305 /* mods_catalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = mods_catalog.json; sourceTree = "<group>"; };
 		BEUSND11 /* ui_click.caf */ = {isa = PBXFileReference; lastKnownFileType = file; name = ui_click.caf; path = Sounds/ui_click.caf; sourceTree = "<group>"; };
 		BEUSND12 /* ui_double.caf */ = {isa = PBXFileReference; lastKnownFileType = file; name = ui_double.caf; path = Sounds/ui_double.caf; sourceTree = "<group>"; };
 		BEUSND13 /* ui_unclick.caf */ = {isa = PBXFileReference; lastKnownFileType = file; name = ui_unclick.caf; path = Sounds/ui_unclick.caf; sourceTree = "<group>"; };
@@ -111,18 +92,9 @@
 		BEUSND15 /* ui_double.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = ui_double.wav; path = Sounds/ui_double.wav; sourceTree = "<group>"; };
 		BEUSND16 /* ui_unclick.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = ui_unclick.wav; path = Sounds/ui_unclick.wav; sourceTree = "<group>"; };
 
-		3105L301 /* Chams_Nhan_Vat.1411 */ = {isa = PBXFileReference; lastKnownFileType = file; path = Chams_Nhan_Vat.1411; sourceTree = "<group>"; };
-		3105L302 /* Chams_Sung_Den_Trang.1411 */ = {isa = PBXFileReference; lastKnownFileType = file; path = Chams_Sung_Den_Trang.1411; sourceTree = "<group>"; };
-		3105L303 /* Chams_Sung_Do_Trang.1411 */ = {isa = PBXFileReference; lastKnownFileType = file; path = Chams_Sung_Do_Trang.1411; sourceTree = "<group>"; };
-		3105L304 /* chams_catalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = chams_catalog.json; sourceTree = "<group>"; };
 
 		3105K100 /* FreeFireAimToggleService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeFireAimToggleService.swift; sourceTree = "<group>"; };
 		FFREMOTE11 /* FreeFireRemoteAssetService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeFireRemoteAssetService.swift; sourceTree = "<group>"; };
-		3105K301 /* Aim_Body.1411 */ = {isa = PBXFileReference; lastKnownFileType = file; path = Aim_Body.1411; sourceTree = "<group>"; };
-		3105K302 /* Aim_Co.1411 */ = {isa = PBXFileReference; lastKnownFileType = file; path = Aim_Co.1411; sourceTree = "<group>"; };
-		3105K303 /* Aim_Keo.1411 */ = {isa = PBXFileReference; lastKnownFileType = file; path = Aim_Keo.1411; sourceTree = "<group>"; };
-		3105K304 /* Aim_Nguc.1411 */ = {isa = PBXFileReference; lastKnownFileType = file; path = Aim_Nguc.1411; sourceTree = "<group>"; };
-		3105K305 /* Magic_Bullet.1411 */ = {isa = PBXFileReference; lastKnownFileType = file; path = Magic_Bullet.1411; sourceTree = "<group>"; };
 		3105K306 /* catalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = catalog.json; sourceTree = "<group>"; };
 
 		3105A010 /* beu.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "beu.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -218,42 +190,22 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		3105M200 /* FFTHMods */ = {
 			isa = PBXGroup;
 			children = (
-				3105M301 /* Quai_Nhan_Den.1411 */,
-				3105M302 /* Gojo_Wolfrahh.1411 */,
-				3105M303 /* Quai_Nhan_Den.png */,
-				3105M304 /* Gojo_Wolfrahh.png */,
-				3105M305 /* mods_catalog.json */,
 			);
-			path = BundledPatches/FFTHMods;
 			sourceTree = "<group>";
 		};
 
-		3105L200 /* FFTHLocation */ = {
 			isa = PBXGroup;
 			children = (
-				3105L301 /* Chams_Nhan_Vat.1411 */,
-				3105L302 /* Chams_Sung_Den_Trang.1411 */,
-				3105L303 /* Chams_Sung_Do_Trang.1411 */,
-				3105L304 /* chams_catalog.json */,
 			);
-			path = BundledPatches/FFTHLocation;
 			sourceTree = "<group>";
 		};
 
-		3105K200 /* FFTHAim */ = {
 			isa = PBXGroup;
 			children = (
-				3105K301 /* Aim_Body.1411 */,
-				3105K302 /* Aim_Co.1411 */,
-				3105K303 /* Aim_Keo.1411 */,
-				3105K304 /* Aim_Nguc.1411 */,
-				3105K305 /* Magic_Bullet.1411 */,
 				3105K306 /* catalog.json */,
 			);
-			path = BundledPatches/FFTHAim;
 			sourceTree = "<group>";
 		};
 
@@ -284,9 +236,6 @@
 				BEUSND14 /* ui_click.wav */,
 				BEUSND15 /* ui_double.wav */,
 				BEUSND16 /* ui_unclick.wav */,
-				3105K200 /* FFTHAim */,
-				3105L200 /* FFTHLocation */,
-				3105M200 /* FFTHMods */,			);
 			path = ThreeOneOSFive;
 			sourceTree = "<group>";
 		};
@@ -461,21 +410,6 @@
 				BEUSND06,
 				3105A211,
 				3105A228,
-				3105K311,
-				3105K312,
-				3105K313,
-				3105K314,
-				3105K315,
-				3105K316,
-				3105L311,
-				3105L312,
-				3105L313,
-				3105L314,
-				3105M311,
-				3105M312,
-				3105M313,
-				3105M314,
-				3105M315,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
