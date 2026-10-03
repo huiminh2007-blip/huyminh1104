@@ -47,7 +47,15 @@ enum FreeFireRemoteAssetService {
     static let owner = "huiminh2007-blip"
     static let repo = "funcition"
     static let branch = "main"
-    static let rootPrefix = "huyminh"
+        static let rootPrefix = ""  // repo root: AIM/, MENU/, MODS/ (no huyminh/ wrapper)
+
+    /// Build GitHub contents path. Repo has AIM/, MENU/, MODS/ at root.
+    private static func repoPath(_ relative: String) -> String {
+        let rel = relative.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        if rootPrefix.isEmpty { return rel }
+        return "\(rootPrefix)/\(rel)"
+    }
+
 
     /// Aim destination inside game container (FF + Max cùng relative path)
     static let aimRelativeDir = "Documents/contentcache/Compulsory/ios/gameassetbundles/avatar"
@@ -149,7 +157,7 @@ enum FreeFireRemoteAssetService {
     // MARK: Menu apply / restore
 
     static func applyMenu(package: String, item: RemoteMenuItem) throws {
-        let remoteDir = "\(rootPrefix)/\(item.remoteDir)"
+        let remoteDir = repoPath(item.remoteDir)
         let files = try listRemoteFiles(inRepoPath: remoteDir)
         guard !files.isEmpty else { throw FreeFireRemoteAssetError.remoteEmpty(remoteDir) }
         let destDir = try containerDir(bundleID: package, relative: menuRelativeDir)
@@ -176,7 +184,7 @@ enum FreeFireRemoteAssetService {
     // MARK: Aim apply / restore — file đích trong folder → .../avatar/
 
     static func applyAim(package: String, item: RemoteAimItem) throws {
-        let remoteDir = "\(rootPrefix)/\(item.remoteDir)"
+        let remoteDir = repoPath(item.remoteDir)
         let file = try firstRemoteFile(inRepoPath: remoteDir)
         let data = try download(urlString: file.downloadURL)
         let destDir = try containerDir(bundleID: package, relative: aimRelativeDir)
@@ -197,7 +205,7 @@ enum FreeFireRemoteAssetService {
     // MARK: Mod apply / restore
 
     static func applyMod(package: String, version: RemoteModVersion) throws {
-        let remoteDir = "\(rootPrefix)/\(version.remoteDir)"
+        let remoteDir = repoPath(version.remoteDir)
         let file = try firstRemoteFile(inRepoPath: remoteDir)
         let data = try download(urlString: file.downloadURL)
         let destDir = try containerDir(bundleID: package, relative: modRelativeDir)
