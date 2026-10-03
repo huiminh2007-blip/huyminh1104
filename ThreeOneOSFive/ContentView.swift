@@ -1255,11 +1255,11 @@ private struct FreeFireGamePanel: View {
                 }
             }
         case .aim:
-            ForEach(FreeFireRemoteAssetService.aimItems) { item in
+            ForEach(FreeFireRemoteAssetService.aimItems(forPackage: package)) { item in
                 remoteFeatureRow(
                     id: "aim.\(item.id)",
                     title: item.title,
-                    subtitle: "cache_res → gameassetbundles",
+                    subtitle: "file đích → .../gameassetbundles/avatar",
                     badge: "REMOTE",
                     systemImage: "scope",
                     on: appliedIDs.contains("aim.\(item.id)")
@@ -1390,7 +1390,7 @@ private struct FreeFireGamePanel: View {
                 set.insert("menu.\(item.id)")
             }
         }
-        for item in FreeFireRemoteAssetService.aimItems {
+        for item in FreeFireRemoteAssetService.aimItems(forPackage: package) {
             if FreeFireRemoteAssetService.isAimApplied(package: package, item: item) {
                 set.insert("aim.\(item.id)")
             }

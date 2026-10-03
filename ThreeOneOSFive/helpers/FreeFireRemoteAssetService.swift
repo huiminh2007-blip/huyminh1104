@@ -3,15 +3,15 @@ import Foundation
 // MARK: - Models
 
 struct RemoteAimItem: Identifiable, Hashable {
-    /// Folder name on funcition: BODY, NECK, …
     let id: String
-    var title: String { id }
+    let title: String
+    /// Path under huyminh/ e.g. AIM/FFTH/AIM HEAD
+    let remoteDir: String
 }
 
 struct RemoteMenuItem: Identifiable, Hashable {
     let id: String
     let title: String
-    /// Path under huyminh/ e.g. MENU/FFTH/FFTH R8 + ESP
     let remoteDir: String
 }
 
@@ -24,7 +24,6 @@ struct RemoteModCharacter: Identifiable, Hashable {
 struct RemoteModVersion: Identifiable, Hashable {
     let id: String
     let title: String
-    /// Path under huyminh/ on the funcition repo, e.g. MODS/FFTH/ALOK/V1
     let remoteDir: String
 }
 
@@ -44,32 +43,44 @@ enum FreeFireRemoteAssetError: LocalizedError {
     }
 }
 
-// MARK: - Service
-
 enum FreeFireRemoteAssetService {
     static let owner = "huiminh2007-blip"
     static let repo = "funcition"
     static let branch = "main"
     static let rootPrefix = "huyminh"
 
-    static let aimItems: [RemoteAimItem] = [
-        .init(id: "BODY"),
-        .init(id: "BỤNG"),
-        .init(id: "CHEST"),
-        .init(id: "DRAG"),
-        .init(id: "MAGIC"),
-        .init(id: "NECK"),
-    ]
-
-    static let aimRelativeDir = "Documents/contentcache/compulsory/ios/gameassetbundles"
+    /// Aim destination inside game container (FF + Max cùng relative path)
+    static let aimRelativeDir = "Documents/contentcache/Compulsory/ios/gameassetbundles/avatar"
     static let modRelativeDir = "Documents/contentcache/optional/ios/optionalavatarres/gameassetbundles"
-    /// Menu packages → Documents/ of the game container
     static let menuRelativeDir = "Documents"
 
-    // MARK: Menu catalog (FFTH = Free Fire, FFM = Free Fire Max)
+    private static let aimFolderNames: [String] = [
+        "AIM HEAD + ANTENA",
+        "AIM BỤNG",
+        "AIM NECK",
+        "MAGIC",
+        "AIM DỊ TẬT",
+        "AIM CHEST",
+        "AIM DRAG",
+        "AIM HEAD",
+    ]
+
+    // MARK: Aim — FFTH = Free Fire, FFM = Free Fire Max
+
+    static func aimItems(forPackage package: String) -> [RemoteAimItem] {
+        let side = (package == "com.dts.freefiremax") ? "FFM" : "FFTH"
+        return aimFolderNames.map { name in
+            RemoteAimItem(
+                id: "\(side)-\(name)",
+                title: name,
+                remoteDir: "AIM/\(side)/\(name)"
+            )
+        }
+    }
+
+    // MARK: Menu
 
     static func menuItems(forPackage package: String) -> [RemoteMenuItem] {
-        // title = đúng tên folder chứa 2 file đích (Assembly-CSharp-patch.bytes + localConfig.json)
         if package == "com.dts.freefiremax" {
             return [
                 RemoteMenuItem(id: "FFM-AIMBOT-HIDE", title: "FFM AIMBOT HIDE", remoteDir: "MENU/FFM/FFM AIMBOT HIDE"),
@@ -86,7 +97,7 @@ enum FreeFireRemoteAssetService {
         ]
     }
 
-    // MARK: Mods catalog
+    // MARK: Mods
 
     static func modCharacters(forPackage package: String) -> [RemoteModCharacter] {
         if package == "com.dts.freefiremax" {
@@ -102,22 +113,14 @@ enum FreeFireRemoteAssetService {
                     id: "ALOK",
                     title: "ALOK",
                     versions: (1...10).map { v in
-                        RemoteModVersion(
-                            id: "ALOK-V\(v)",
-                            title: "V\(v)",
-                            remoteDir: "MODS/FFTH/ALOK/V\(v)"
-                        )
+                        RemoteModVersion(id: "ALOK-V\(v)", title: "V\(v)", remoteDir: "MODS/FFTH/ALOK/V\(v)")
                     }
                 ),
                 RemoteModCharacter(
                     id: "IGNIS",
                     title: "IGNIS",
                     versions: (1...3).map { v in
-                        RemoteModVersion(
-                            id: "IGNIS-V\(v)",
-                            title: "V\(v)",
-                            remoteDir: "MODS/FFTH/IGNIS/V\(v)"
-                        )
+                        RemoteModVersion(id: "IGNIS-V\(v)", title: "V\(v)", remoteDir: "MODS/FFTH/IGNIS/V\(v)")
                     }
                 ),
             ]
@@ -143,7 +146,7 @@ enum FreeFireRemoteAssetService {
         UserDefaults.standard.string(forKey: defaultsKey(package: package, feature: "mod.\(version.id)")) != nil
     }
 
-    // MARK: Menu apply / restore — all files in folder → Documents/
+    // MARK: Menu apply / restore
 
     static func applyMenu(package: String, item: RemoteMenuItem) throws {
         let remoteDir = "\(rootPrefix)/\(item.remoteDir)"
@@ -170,10 +173,10 @@ enum FreeFireRemoteAssetService {
         UserDefaults.standard.removeObject(forKey: key)
     }
 
-    // MARK: Aim apply / restore
+    // MARK: Aim apply / restore — file đích trong folder → .../avatar/
 
     static func applyAim(package: String, item: RemoteAimItem) throws {
-        let remoteDir = "\(rootPrefix)/AIM/\(item.id)"
+        let remoteDir = "\(rootPrefix)/\(item.remoteDir)"
         let file = try firstRemoteFile(inRepoPath: remoteDir)
         let data = try download(urlString: file.downloadURL)
         let destDir = try containerDir(bundleID: package, relative: aimRelativeDir)
