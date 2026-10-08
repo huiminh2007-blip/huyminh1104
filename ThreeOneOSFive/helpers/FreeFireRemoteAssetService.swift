@@ -181,11 +181,14 @@ enum FreeFireRemoteAssetService {
         UserDefaults.standard.removeObject(forKey: key)
     }
 
-    // MARK: Aim apply / restore — file đích trong folder → .../avatar/
+    // MARK: Aim apply / restore
+    // Bật: lấy file cuối cùng trong AIM/<FFM|FFTH>/<tên AIM>
+    // Tắt: lấy file cuối cùng trong AIM/<FFM|FFTH>/GOC và ghi đè cùng vị trí đích.
+    // Các file ẩn / .gitkeep không được coi là asset.
 
     static func applyAim(package: String, item: RemoteAimItem) throws {
         let remoteDir = repoPath(item.remoteDir)
-        let file = try firstRemoteFile(inRepoPath: remoteDir)
+        let file = try lastRemoteAssetFile(inRepoPath: remoteDir)
         let data = try download(urlString: file.downloadURL)
         let destDir = try containerDir(bundleID: package, relative: aimRelativeDir)
         try writeReplacing(data: data, to: destDir.appendingPathComponent(file.name))
@@ -193,13 +196,16 @@ enum FreeFireRemoteAssetService {
     }
 
     static func restoreAim(package: String, item: RemoteAimItem) throws {
-        let key = defaultsKey(package: package, feature: "aim.\(item.id)")
-        let name = UserDefaults.standard.string(forKey: key)
+        let side = (package == "com.dts.freefiremax") ? "FFM" : "FFTH"
+        let gocDir = repoPath("AIM/\(side)/GOC")
+        let file = try lastRemoteAssetFile(inRepoPath: gocDir)
+        let data = try download(urlString: file.downloadURL)
         let destDir = try containerDir(bundleID: package, relative: aimRelativeDir)
-        if let name {
-            try? FileManager.default.removeItem(at: destDir.appendingPathComponent(name))
-        }
-        UserDefaults.standard.removeObject(forKey: key)
+
+        // Tắt AIM không xóa asset đích. Thay vào đó, ghi file GOC vào đúng vị trí
+        // để trả game về trạng thái gốc / trạng thái mặc định.
+        try writeReplacing(data: data, to: destDir.appendingPathComponent(file.name))
+        UserDefaults.standard.removeObject(forKey: defaultsKey(package: package, feature: "aim.\(item.id)"))
     }
 
     // MARK: Mod apply / restore
@@ -247,8 +253,24 @@ enum FreeFireRemoteAssetService {
         }
     }
 
+    private static func lastRemoteAssetFile(inRepoPath path: String) throws -> RemoteFile {
+        let files = try listRemoteFiles(inRepoPath: path)
+            .filter { file in
+                let lowercased = file.name.lowercased()
+                return !file.name.hasPrefix(".") && lowercased != ".gitkeep"
+            }
+        guard let last = files.sorted(by: { $0.name.localizedStandardCompare($1.name) == .orderedAscending }).last else {
+            throw FreeFireRemoteAssetError.remoteEmpty(path)
+        }
+        return last
+    }
+
     private static func firstRemoteFile(inRepoPath path: String) throws -> RemoteFile {
         let files = try listRemoteFiles(inRepoPath: path)
+            .filter { file in
+                let lowercased = file.name.lowercased()
+                return !file.name.hasPrefix(".") && lowercased != ".gitkeep"
+            }
         guard let first = files.first else { throw FreeFireRemoteAssetError.remoteEmpty(path) }
         return first
     }
