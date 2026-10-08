@@ -5,7 +5,13 @@ import Foundation
 struct RemoteAimItem: Identifiable, Hashable {
     let id: String
     let title: String
-    /// Path under huyminh/ e.g. AIM/FFTH/AIM HEAD
+    /// Path under funcition repo, e.g. AIM/FFTH/AIM HEAD
+    let remoteDir: String
+}
+
+struct RemoteChamsItem: Identifiable, Hashable {
+    let id: String
+    let title: String
     let remoteDir: String
 }
 
@@ -59,6 +65,8 @@ enum FreeFireRemoteAssetService {
 
     /// Aim destination inside game container (FF + Max cùng relative path)
     static let aimRelativeDir = "Documents/contentcache/Compulsory/ios/gameassetbundles/avatar"
+    /// Chams shader destination for both Free Fire and Free Fire Max.
+    static let chamsRelativeDir = "Documents/contentcache/Optional/ios/gameassetbundles"
     static let modRelativeDir = "Documents/contentcache/optional/ios/optionalavatarres/gameassetbundles"
     static let menuRelativeDir = "Documents"
 
@@ -84,6 +92,19 @@ enum FreeFireRemoteAssetService {
                 remoteDir: "AIM/\(side)/\(name)"
             )
         }
+    }
+
+    // MARK: Chams — one remote shader per game flavor
+
+    static func chamsItems(forPackage package: String) -> [RemoteChamsItem] {
+        let side = (package == "com.dts.freefiremax") ? "FFM" : "FFTH"
+        return [
+            RemoteChamsItem(
+                id: "\(side)-CHAMS",
+                title: "Chams",
+                remoteDir: "CHAMS/\(side)"
+            )
+        ]
     }
 
     // MARK: Menu
@@ -150,6 +171,10 @@ enum FreeFireRemoteAssetService {
         UserDefaults.standard.string(forKey: defaultsKey(package: package, feature: "aim.\(item.id)")) != nil
     }
 
+    static func isChamsApplied(package: String, item: RemoteChamsItem) -> Bool {
+        UserDefaults.standard.string(forKey: defaultsKey(package: package, feature: "chams.\(item.id)")) != nil
+    }
+
     static func isModVersionApplied(package: String, version: RemoteModVersion) -> Bool {
         UserDefaults.standard.string(forKey: defaultsKey(package: package, feature: "mod.\(version.id)")) != nil
     }
@@ -206,6 +231,28 @@ enum FreeFireRemoteAssetService {
         // để trả game về trạng thái gốc / trạng thái mặc định.
         try writeReplacing(data: data, to: destDir.appendingPathComponent(file.name))
         UserDefaults.standard.removeObject(forKey: defaultsKey(package: package, feature: "aim.\(item.id)"))
+    }
+
+    // MARK: Chams apply / restore
+    // Bật: lấy file shader cuối cùng trong CHAMS/<FFM|FFTH>.
+    // Tắt: xóa đúng file đã ghi vào gameassetbundles.
+
+    static func applyChams(package: String, item: RemoteChamsItem) throws {
+        let remoteDir = repoPath(item.remoteDir)
+        let file = try lastRemoteAssetFile(inRepoPath: remoteDir)
+        let data = try download(urlString: file.downloadURL)
+        let destDir = try containerDir(bundleID: package, relative: chamsRelativeDir)
+        try writeReplacing(data: data, to: destDir.appendingPathComponent(file.name))
+        UserDefaults.standard.set(file.name, forKey: defaultsKey(package: package, feature: "chams.\(item.id)"))
+    }
+
+    static func restoreChams(package: String, item: RemoteChamsItem) throws {
+        let key = defaultsKey(package: package, feature: "chams.\(item.id)")
+        let destDir = try containerDir(bundleID: package, relative: chamsRelativeDir)
+        if let name = UserDefaults.standard.string(forKey: key) {
+            try? FileManager.default.removeItem(at: destDir.appendingPathComponent(name))
+        }
+        UserDefaults.standard.removeObject(forKey: key)
     }
 
     // MARK: Mod apply / restore

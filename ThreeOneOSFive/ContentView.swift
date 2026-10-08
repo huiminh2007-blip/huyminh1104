@@ -1075,13 +1075,12 @@ private struct HomeSeededRNG: RandomNumberGenerator {
 // MARK: - Free Fire game panel (OPEN) — remote assets from funcition
 
 private enum FFTab: Int, CaseIterable, Identifiable {
-    case menu, aim, guns, chams, mods
+    case menu, aim, chams, mods
     var id: Int { rawValue }
     func title(_ language: AppLanguage) -> String {
         switch self {
         case .menu: return "Menu"
         case .aim: return language.text("home.ff.aim")
-        case .guns: return "Guns"
         case .chams: return "Chams"
         case .mods: return language.text("home.ff.mods")
         }
@@ -1267,10 +1266,19 @@ private struct FreeFireGamePanel: View {
                     toggleAim(item)
                 }
             }
-        case .guns:
-            emptyCategory(title: "Guns")
         case .chams:
-            emptyCategory(title: "Chams")
+            ForEach(FreeFireRemoteAssetService.chamsItems(forPackage: package)) { item in
+                remoteFeatureRow(
+                    id: "chams.\(item.id)",
+                    title: item.title,
+                    subtitle: "shader → .../contentcache/Optional/ios/gameassetbundles",
+                    badge: game.isFreeFireMax ? "FFM" : "FFTH",
+                    systemImage: "person.crop.circle.badge.checkmark",
+                    on: appliedIDs.contains("chams.\(item.id)")
+                ) {
+                    toggleChams(item)
+                }
+            }
         case .mods:
             let characters = FreeFireRemoteAssetService.modCharacters(forPackage: package)
             if characters.isEmpty {
@@ -1395,6 +1403,11 @@ private struct FreeFireGamePanel: View {
                 set.insert("aim.\(item.id)")
             }
         }
+        for item in FreeFireRemoteAssetService.chamsItems(forPackage: package) {
+            if FreeFireRemoteAssetService.isChamsApplied(package: package, item: item) {
+                set.insert("chams.\(item.id)")
+            }
+        }
         for ch in FreeFireRemoteAssetService.modCharacters(forPackage: package) {
             for ver in ch.versions {
                 if FreeFireRemoteAssetService.isModVersionApplied(package: package, version: ver) {
@@ -1425,6 +1438,18 @@ private struct FreeFireGamePanel: View {
                 try FreeFireRemoteAssetService.restoreAim(package: package, item: item)
             } else {
                 try FreeFireRemoteAssetService.applyAim(package: package, item: item)
+            }
+        }
+    }
+
+    private func toggleChams(_ item: RemoteChamsItem) {
+        let id = "chams.\(item.id)"
+        let on = appliedIDs.contains(id)
+        runWork(id: id, currentlyOn: on) {
+            if on {
+                try FreeFireRemoteAssetService.restoreChams(package: package, item: item)
+            } else {
+                try FreeFireRemoteAssetService.applyChams(package: package, item: item)
             }
         }
     }
@@ -1479,8 +1504,8 @@ private struct FreeFireGamePanel: View {
                         body: "Bật Aim sẽ tải file cache_res từ repo funcition (AIM/<tên>) và ghi vào Documents/contentcache/compulsory/ios/gameassetbundles của game đang OPEN (Free Fire hoặc Free Fire Max)."
                     )
                     helpBlock(
-                        title: "Guns / Chams",
-                        body: "Hiện đang để trống."
+                        title: "Chams",
+                        body: "Bật Chams sẽ tải shader mới nhất trong CHAMS/FFTH hoặc CHAMS/FFM từ repo funcition và ghi vào Documents/contentcache/Optional/ios/gameassetbundles của game đang mở. Tắt Chams sẽ xóa đúng file shader đã ghi."
                     )
                     helpBlock(
                         title: "Mods",
