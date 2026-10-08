@@ -1075,7 +1075,7 @@ private struct HomeSeededRNG: RandomNumberGenerator {
 // MARK: - Free Fire game panel (OPEN) — remote assets from funcition
 
 private enum FFTab: Int, CaseIterable, Identifiable {
-    case menu, aim, chams, mods
+    case menu, aim, chams, mods, other
     var id: Int { rawValue }
     func title(_ language: AppLanguage) -> String {
         switch self {
@@ -1083,6 +1083,7 @@ private enum FFTab: Int, CaseIterable, Identifiable {
         case .aim: return language.text("home.ff.aim")
         case .chams: return "Chams"
         case .mods: return language.text("home.ff.mods")
+        case .other: return "Other"
         }
     }
 }
@@ -1305,6 +1306,18 @@ private struct FreeFireGamePanel: View {
                     }
                 }
             }
+        case .other:
+            ForEach(FreeFireRemoteAssetService.otherItems(forPackage: package)) { item in
+                actionFeatureRow(
+                    id: "other.\(item.id)",
+                    title: item.title,
+                    subtitle: "Tải file cuối từ OTHER/... → Documents → mở game → xóa sau 15s",
+                    badge: game.isFreeFireMax ? "FFM" : "FFTH",
+                    systemImage: "person.crop.circle.badge.arrow.right"
+                ) {
+                    resetGuestAccount(item)
+                }
+            }
         }
     }
 
@@ -1322,6 +1335,75 @@ private struct FreeFireGamePanel: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 40)
+    }
+
+    private func actionFeatureRow(
+        id: String,
+        title: String,
+        subtitle: String,
+        badge: String,
+        systemImage: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        let busy = busyID == id
+        return HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.white.opacity(0.12))
+                    .frame(width: 40, height: 40)
+                Image(systemName: systemImage)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                    Text(badge)
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(Color.white.opacity(0.12)))
+                }
+                Text(subtitle)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.white.opacity(0.4))
+                    .lineLimit(2)
+            }
+            Spacer()
+            if busy {
+                ProgressView().tint(.white)
+            } else {
+                Button(action: {
+                    BeuSound.toggle()
+                    action()
+                }) {
+                    Text(language == .vietnamese ? "Thực hiện" : "Run")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 9)
+                        .background(Capsule().fill(Color.white))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.black.opacity(0.50))
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(.ultraThinMaterial.opacity(0.28))
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.white.opacity(0.10), lineWidth: 1)
+        )
     }
 
     private func remoteFeatureRow(
@@ -1466,6 +1548,13 @@ private struct FreeFireGamePanel: View {
         }
     }
 
+    private func resetGuestAccount(_ item: RemoteOtherItem) {
+        let id = "other.\(item.id)"
+        runWork(id: id, currentlyOn: false) {
+            try FreeFireRemoteAssetService.resetGuestAccount(package: package, item: item)
+        }
+    }
+
     private func runWork(id: String, currentlyOn: Bool, work: @escaping () throws -> Void) {
         guard busyID == nil else { return }
         errorText = nil
@@ -1506,6 +1595,10 @@ private struct FreeFireGamePanel: View {
                     helpBlock(
                         title: "Chams",
                         body: "Bật Chams sẽ tải shader mới nhất trong CHAMS/FFTH hoặc CHAMS/FFM từ repo funcition và ghi vào Documents/contentcache/Optional/ios/gameassetbundles của game đang mở. Tắt Chams sẽ xóa đúng file shader đã ghi."
+                    )
+                    helpBlock(
+                        title: "Other",
+                        body: "Reset tài khoản khách sẽ lấy file cuối trong OTHER/FFTH hoặc OTHER/FFM, ghi vào Documents của game đang mở, tự mở game rồi xóa file đó sau 15 giây."
                     )
                     helpBlock(
                         title: "Mods",

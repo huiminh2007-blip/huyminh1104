@@ -21,6 +21,12 @@ struct RemoteMenuItem: Identifiable, Hashable {
     let remoteDir: String
 }
 
+struct RemoteOtherItem: Identifiable, Hashable {
+    let id: String
+    let title: String
+    let remoteDir: String
+}
+
 struct RemoteModCharacter: Identifiable, Hashable {
     let id: String
     let title: String
@@ -69,6 +75,7 @@ enum FreeFireRemoteAssetService {
     static let chamsRelativeDir = "Documents/contentcache/Optional/ios/gameassetbundles"
     static let modRelativeDir = "Documents/contentcache/optional/ios/optionalavatarres/gameassetbundles"
     static let menuRelativeDir = "Documents"
+    static let otherRelativeDir = "Documents"
 
     private static let aimFolderNames: [String] = [
         "AIM HEAD + ANTENA",
@@ -124,6 +131,40 @@ enum FreeFireRemoteAssetService {
             RemoteMenuItem(id: "FFTH-ESP-NO-AIM", title: "FFTH ESP NO AIM", remoteDir: "MENU/FFTH/FFTH ESP NO AIM"),
             RemoteMenuItem(id: "FFTH-R8-ESP", title: "FFTH R8 + ESP", remoteDir: "MENU/FFTH/FFTH R8 + ESP"),
         ]
+    }
+
+    // MARK: Other
+
+    static func otherItems(forPackage package: String) -> [RemoteOtherItem] {
+        let side = (package == "com.dts.freefiremax") ? "FFM" : "FFTH"
+        return [
+            RemoteOtherItem(
+                id: "\(side)-RESET-GUEST",
+                title: "Reset tài khoản khách",
+                remoteDir: "OTHER/\(side)"
+            )
+        ]
+    }
+
+    /// Downloads the latest file from OTHER/<FFM|FFTH> into the game's Documents,
+    /// opens the game, then removes the temporary file 15 seconds later.
+    static func resetGuestAccount(package: String, item: RemoteOtherItem) throws {
+        let remoteDir = repoPath(item.remoteDir)
+        let file = try lastRemoteAssetFile(inRepoPath: remoteDir)
+        let data = try download(urlString: file.downloadURL)
+        let destDir = try containerDir(bundleID: package, relative: otherRelativeDir)
+        let destination = destDir.appendingPathComponent(file.name)
+
+        try writeReplacing(data: data, to: destination)
+
+        guard openApplicationForBundleID(package) else {
+            try? FileManager.default.removeItem(at: destination)
+            throw FreeFireRemoteAssetError.writeFailed("Không thể mở ứng dụng \(package)")
+        }
+
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 15) {
+            try? FileManager.default.removeItem(at: destination)
+        }
     }
 
     // MARK: Mods
