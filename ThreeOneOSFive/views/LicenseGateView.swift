@@ -72,9 +72,6 @@ struct LicenseGateView: View {
         .preferredColorScheme(.dark)
         .statusBarHidden(false)
         .onAppear { ringSpin = true }
-        .onChange(of: licenseManager.errorMessage) { new in
-            if new != nil { BeuSound.error() }
-        }
         .onChange(of: licenseManager.isAuthorized) { ok in
             if ok { BeuSound.success() }
         }
