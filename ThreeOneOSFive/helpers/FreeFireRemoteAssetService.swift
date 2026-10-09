@@ -177,6 +177,22 @@ enum FreeFireRemoteAssetService {
     }
 
     private static func loadModCharacters(kind: String) -> [RemoteModCharacter] {
+        if kind == "FFM" {
+            // Free Fire Max — ALOK V1…V5 (funcition MODS/FFM/ALOK)
+            return [
+                RemoteModCharacter(
+                    id: "ALOK",
+                    title: "ALOK",
+                    versions: (1...5).map { v in
+                        RemoteModVersion(
+                            id: "FFM-ALOK-V\(v)",
+                            title: "V\(v)",
+                            remoteDir: "MODS/FFM/ALOK/V\(v)"
+                        )
+                    }
+                ),
+            ]
+        }
         if kind == "FFTH" {
             return [
                 RemoteModCharacter(
