@@ -1099,7 +1099,6 @@ private struct FreeFireGamePanel: View {
     @State private var busyID: String?
     @State private var errorText: String?
     @State private var infoText: String?
-    @State private var showHelp = false
 
     private var package: String { game.package }
 
@@ -1158,9 +1157,6 @@ private struct FreeFireGamePanel: View {
             }
         }
         .onAppear { refreshApplied() }
-        .sheet(isPresented: $showHelp) {
-            helpSheet
-        }
     }
 
     private var header: some View {
@@ -1187,16 +1183,6 @@ private struct FreeFireGamePanel: View {
                 }
             }
             Spacer()
-            Button { showHelp = true } label: {
-                Image(systemName: "questionmark")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .frame(width: 36, height: 36)
-                    .background(Circle().fill(Color.black.opacity(0.45)))
-                    .overlay(Circle().stroke(Color.white.opacity(0.12), lineWidth: 1))
-            }
-            .buttonStyle(.plain)
-
             Button(action: onClose) {
                 Image(systemName: "xmark")
                     .font(.system(size: 13, weight: .bold))
@@ -1580,66 +1566,6 @@ private struct FreeFireGamePanel: View {
         }
     }
 
-    private var helpSheet: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    helpBlock(
-                        title: "Menu",
-                        body: "FFTH = Free Fire, FFM = Free Fire Max. Tải toàn bộ file trong MENU/... (Assembly-CSharp-patch.bytes, localConfig.json, …) vào Documents của container game đang OPEN."
-                    )
-                    helpBlock(
-                        title: "Aim",
-                        body: "Bật Aim sẽ tải file cache_res từ repo funcition (AIM/<tên>) và ghi vào Documents/contentcache/compulsory/ios/gameassetbundles của game đang OPEN (Free Fire hoặc Free Fire Max)."
-                    )
-                    helpBlock(
-                        title: "Chams",
-                        body: "Bật Chams sẽ tải shader mới nhất trong CHAMS/FFTH hoặc CHAMS/FFM từ repo funcition và ghi vào Documents/contentcache/Optional/ios/gameassetbundles của game đang mở. Tắt Chams sẽ xóa đúng file shader đã ghi."
-                    )
-                    helpBlock(
-                        title: "Other",
-                        body: "Reset tài khoản khách sẽ lấy file cuối trong OTHER/FFTH hoặc OTHER/FFM, ghi vào Documents của game đang mở, tự mở game rồi xóa file đó sau 15 giây."
-                    )
-                    helpBlock(
-                        title: "Mods",
-                        body: "FFTH = Free Fire, FFM = Free Fire Max. File ghi vào Documents/contentcache/optional/ios/optionalavatarres/gameassetbundles. ALOK / IGNIS có các bản V1, V2…"
-                    )
-                }
-                .padding(20)
-            }
-            .background(Color(white: 0.08).ignoresSafeArea())
-            .navigationTitle(language.text("home.ff.help"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(language == .vietnamese ? "Đóng" : "Close") { showHelp = false }
-                }
-            }
-        }
-        .preferredColorScheme(.dark)
-    }
-
-    private func helpBlock(title: String, body: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(.white)
-            Text(body)
-                .font(.system(size: 13))
-                .foregroundStyle(.white.opacity(0.7))
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.white.opacity(0.06))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
-        )
-    }
 }
 
 
