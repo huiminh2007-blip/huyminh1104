@@ -1292,6 +1292,36 @@ private struct FreeFireGamePanel: View {
                     }
                 }
             }
+
+            // Nút xóa mod — giống beu1411 (xóa contentcache/optional|Optional)
+            Button {
+                deleteAllMods()
+            } label: {
+                HStack(spacing: 10) {
+                    if busyID == "mod.clear" {
+                        ProgressView().tint(.white)
+                    } else {
+                        Image(systemName: "trash.fill")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    Text(busyID == "mod.clear"
+                         ? (language == .vietnamese ? "Đang xóa mod..." : "Deleting mods...")
+                         : (language == .vietnamese ? "Xóa mod" : "Delete mod"))
+                        .font(.system(size: 14, weight: .bold))
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color.red.opacity(busyID == "mod.clear" ? 0.45 : 0.88))
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(busyID != nil)
+            .padding(.top, 8)
+
         case .other:
             ForEach(FreeFireRemoteAssetService.otherItems(forPackage: package)) { item in
                 actionFeatureRow(
@@ -1518,6 +1548,32 @@ private struct FreeFireGamePanel: View {
                 try FreeFireRemoteAssetService.restoreChams(package: package, item: item)
             } else {
                 try FreeFireRemoteAssetService.applyChams(package: package, item: item)
+            }
+        }
+    }
+
+    private func deleteAllMods() {
+        let id = "mod.clear"
+        guard busyID == nil else { return }
+        busyID = id
+        errorText = nil
+        infoText = nil
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                _ = try FreeFireRemoteAssetService.clearAllMods(package: package)
+                DispatchQueue.main.async {
+                    // Bỏ hết trạng thái mod đã bật
+                    appliedIDs = appliedIDs.filter { !$0.hasPrefix("mod.") }
+                    busyID = nil
+                    infoText = language == .vietnamese ? "Đã xóa mod" : "Mods deleted"
+                    BeuSound.success()
+                    refreshApplied()
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    busyID = nil
+                    errorText = error.localizedDescription
+                }
             }
         }
     }

@@ -186,7 +186,7 @@ enum FreeFireRemoteAssetService {
                 RemoteModCharacter(
                     id: "ALOK",
                     title: "ALOK",
-                    versions: (1...5).map { v in
+                    versions: (1...6).map { v in
                         RemoteModVersion(
                             id: "FFM-ALOK-V\(v)",
                             title: "V\(v)",
@@ -340,6 +340,32 @@ enum FreeFireRemoteAssetService {
     private struct RemoteFile {
         let name: String
         let downloadURL: String
+    }
+
+    /// Xóa toàn bộ thư mục mod avatar (giống beu1411): Documents/contentcache/optional|Optional
+    @discardableResult
+    static func clearAllMods(package: String) throws -> Bool {
+        guard let root = ContainerStore.resolveAppContainerPath(bundleID: package),
+              ContainerStore.isApplicationContainerPath(root) else {
+            throw FreeFireRemoteAssetError.containerUnavailable(package)
+        }
+        let docs = URL(fileURLWithPath: root, isDirectory: true)
+            .appendingPathComponent("Documents", isDirectory: true)
+        let fm = FileManager.default
+        let relativePaths = ["contentcache/optional", "contentcache/Optional"]
+        var anyDeleted = false
+        for relative in relativePaths {
+            let path = docs.appendingPathComponent(relative, isDirectory: true)
+            if fm.fileExists(atPath: path.path) {
+                try? fm.removeItem(at: path)
+                if !fm.fileExists(atPath: path.path) { anyDeleted = true }
+            }
+        }
+        let prefix = "ff.remote.\(package).mod."
+        for key in UserDefaults.standard.dictionaryRepresentation().keys where key.hasPrefix(prefix) {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+        return anyDeleted
     }
 
     private static func listRemoteFiles(inRepoPath path: String) throws -> [RemoteFile] {
