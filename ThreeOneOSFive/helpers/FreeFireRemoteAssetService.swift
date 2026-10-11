@@ -73,7 +73,7 @@ enum FreeFireRemoteAssetService {
     static let aimRelativeDir = "Documents/contentcache/Compulsory/ios/gameassetbundles/avatar"
     /// Chams shader destination for both Free Fire and Free Fire Max.
     static let chamsRelativeDir = "Documents/contentcache/Optional/ios/gameassetbundles"
-    static let modRelativeDir = "Documents/contentcache/optional/ios/optionalavatarres/gameassetbundles"
+    static let modRelativeDir = "Documents/contentcache/Optional/ios/optionalavatarres/gameassetbundles"
     static let menuRelativeDir = "Documents"
     static let otherRelativeDir = "Documents"
 

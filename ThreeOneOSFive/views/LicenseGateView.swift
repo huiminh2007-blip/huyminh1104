@@ -36,7 +36,7 @@ struct LicenseGateView: View {
                 VStack(spacing: 0) {
                     avatarSection
 
-                    Text("HUYMINH IOS")
+                    Text("HuyMinh Ext")
                         .font(.system(size: 22, weight: .bold))
                         .tracking(2.0)
                         .foregroundStyle(Color.white.opacity(0.96))
