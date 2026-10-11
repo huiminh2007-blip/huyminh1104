@@ -120,6 +120,7 @@ enum FreeFireRemoteAssetService {
         if package == "com.dts.freefiremax" {
             return [
                 RemoteMenuItem(id: "FFM-V1", title: "FFM V1", remoteDir: "MENU/FFM/FFM V1"),
+                RemoteMenuItem(id: "FFM-V2", title: "FFM V2", remoteDir: "MENU/FFM/FFM V2"),
                 RemoteMenuItem(id: "FFM-AIMBOT-HIDE", title: "FFM AIMBOT HIDE", remoteDir: "MENU/FFM/FFM AIMBOT HIDE"),
                 RemoteMenuItem(id: "FFM-CANCHECK-R8", title: "FFM CANCHECK R8", remoteDir: "MENU/FFM/FFM CANCHECK R8"),
                 RemoteMenuItem(id: "FFM-ESP-NO-AIM", title: "FFM ESP NO AIM", remoteDir: "MENU/FFM/FFM ESP NO AIM"),
@@ -128,6 +129,7 @@ enum FreeFireRemoteAssetService {
         }
         return [
             RemoteMenuItem(id: "FFTH-V1", title: "FFTH V1", remoteDir: "MENU/FFTH/FFTH V1"),
+            RemoteMenuItem(id: "FFTH-V2", title: "FFTH V2", remoteDir: "MENU/FFTH/FFTH V2"),
             RemoteMenuItem(id: "FFTH-AIMBOT-HIDE", title: "FFTH AIMBOT HIDE", remoteDir: "MENU/FFTH/FFTH AIMBOT HIDE"),
             RemoteMenuItem(id: "FFTH-CANCHECK-R8", title: "FFTH CANCHECK R8", remoteDir: "MENU/FFTH/FFTH CANCHECK R8"),
             RemoteMenuItem(id: "FFTH-ESP-NO-AIM", title: "FFTH ESP NO AIM", remoteDir: "MENU/FFTH/FFTH ESP NO AIM"),
