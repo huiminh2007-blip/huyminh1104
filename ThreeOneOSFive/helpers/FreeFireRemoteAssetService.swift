@@ -3,6 +3,12 @@ import CryptoKit
 
 // MARK: - Models
 
+struct MenuPairChallenge: Decodable {
+    let version: Int
+    let menuDeviceHash: String
+    let nonce: String
+}
+
 struct RemoteMenuItem: Identifiable, Hashable {
     let id: String
     let title: String
@@ -63,7 +69,7 @@ enum FreeFireRemoteAssetService {
     private static let mizoraFiles = ["Assembly-CSharp-patch.bytes", "localConfig.json"]
 
     static func menuItems(forPackage package: String) -> [RemoteMenuItem] {
-        guard package == "com.dts.freefireth" else { return [] }
+        guard ["com.dts.freefireth", "com.dts.freefiremax"].contains(package) else { return [] }
         return [RemoteMenuItem(id: "FFTH-MIZORA", title: "Mizora", remoteDir: "MENU/FFTH/Mizora")]
     }
 
@@ -147,6 +153,19 @@ enum FreeFireRemoteAssetService {
         return []
     }
 
+    static func menuChallenge(forPackage package: String) throws -> MenuPairChallenge {
+        guard !menuItems(forPackage: package).isEmpty else { throw FreeFireRemoteAssetError.remoteEmpty(package) }
+        let directory = try containerDir(bundleID: package, relative: menuRelativeDir)
+        let file = directory.appendingPathComponent("MizoraMenuChallenge.json")
+        guard let data = try? Data(contentsOf: file), data.count <= 4096,
+              let challenge = try? JSONDecoder().decode(MenuPairChallenge.self, from: data), challenge.version == 1,
+              challenge.menuDeviceHash.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil,
+              challenge.nonce.range(of: "^[a-f0-9]{32}$", options: .regularExpression) != nil else {
+            throw FreeFireRemoteAssetError.downloadFailed("Mở game đến màn hình nhập secret rồi quay lại app lấy mã.")
+        }
+        return challenge
+    }
+
     // MARK: Applied state
 
     private static func defaultsKey(package: String, feature: String) -> String {
@@ -170,7 +189,7 @@ enum FreeFireRemoteAssetService {
         let files = try listRemoteFiles(inRepoPath: repoPath(item.remoteDir))
         guard let manifestFile = files.first(where: { $0.name == "manifest.json" }),
               let manifest = try JSONSerialization.jsonObject(with: download(urlString: manifestFile.downloadURL)) as? [String: Any],
-              manifest["targetPackage"] as? String == package,
+              (manifest["targetPackages"] as? [String] ?? [manifest["targetPackage"] as? String ?? ""]).contains(package),
               let hashes = manifest["files"] as? [String: String],
               Set(hashes.keys) == Set(mizoraFiles) else {
             throw FreeFireRemoteAssetError.downloadFailed("Manifest Mizora không hợp lệ")
