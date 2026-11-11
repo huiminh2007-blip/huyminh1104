@@ -48,6 +48,9 @@ jobs:
           fi
           xcodebuild -version
 
+      - name: Verify Firebase authentication response decoding
+        run: python3 scripts/verify-firebase-auth.py
+
       - name: List schemes
         run: |
           xcodebuild -project "${{ inputs.project_path }}" -list || true
