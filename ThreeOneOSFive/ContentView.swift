@@ -1089,6 +1089,7 @@ private enum FFTab: Int, CaseIterable, Identifiable {
 }
 
 private struct FreeFireGamePanel: View {
+    @EnvironmentObject private var licenseManager: LicenseManager
     let game: ContentView.OpenGameTarget
     var onClose: () -> Void
 
@@ -1228,6 +1229,7 @@ private struct FreeFireGamePanel: View {
     private var tabContent: some View {
         switch tab {
         case .menu:
+            menuSecretCard
             ForEach(FreeFireRemoteAssetService.menuItems(forPackage: package)) { item in
                 remoteFeatureRow(
                     id: "menu.\(item.id)",
@@ -1396,6 +1398,23 @@ private struct FreeFireGamePanel: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(Color.white.opacity(0.10), lineWidth: 1)
         )
+    }
+
+    private var menuSecretCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Secret key Mizora").font(.headline)
+            if licenseManager.menuSecretPackage == package && !licenseManager.menuSecretKey.isEmpty {
+                Text(licenseManager.menuSecretKey).font(.system(size: 15, weight: .bold, design: .monospaced)).textSelection(.enabled)
+                Button("Sao chép secret key") { UIPasteboard.general.string = licenseManager.menuSecretKey }
+            }
+            Text(licenseManager.menuSecretMessage).font(.footnote).foregroundStyle(.secondary)
+            Button(licenseManager.isGeneratingMenuSecret ? "Đang tạo mã..." : "Lấy secret cho menu trên máy này") {
+                Task { await licenseManager.generateMenuSecret(forPackage: package) }
+            }.disabled(licenseManager.isGeneratingMenuSecret)
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Color.white.opacity(0.08)))
+        .task { await licenseManager.generateMenuSecret(forPackage: package) }
     }
 
     private func remoteFeatureRow(

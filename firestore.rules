@@ -32,20 +32,76 @@ service cloud.firestore {
       let used = old.get('usedUsers', 0) > count ? old.get('usedUsers', 0) : count;
       return before is map && after is map && id is string && id.matches('[A-Za-z0-9_-]{1,128}')
         && next.get('authUID', '') == request.auth.uid
+        && (old.get('authUID', '') == '' || old.get('authUID', '') == request.auth.uid)
         && after.diff(before).affectedKeys().hasOnly([id])
         && (before.keys().hasAny([id]) ? after[id] == before[id] : after[id] == request.auth.uid)
         && next.get('usedUsers', -1) == used + (known ? 0 : 1)
-        && next.get('usedUsers', -1) <= old.get('maxUsers', 1)
-        && after.size() <= old.get('maxUsers', 1)
+        && ((known && id == legacy) || (!known && legacy == '' && used == 0 && next.get('usedUsers', -1) == 1))
         && after.keys().hasAny([id]);
+    }
+    function activeApp(keyId, device, uid) {
+      let key = get(/databases/$(database)/documents/keys/$(keyId)).data;
+      return key.get('allowed', false) && inWindow(key) && key.get('deviceID', '') == device
+        && (key.get('durationSeconds', null) == null || key.get('expiresAt', null) != null || key.get('activatedAt', null) is timestamp)
+        && device != '' && key.get('authUID', '') == uid;
+    }
+    function appOwner(keyId) {
+      let key = get(/databases/$(database)/documents/keys/$(keyId)).data;
+      return request.auth != null && activeApp(keyId, key.get('deviceID', ''), request.auth.uid);
+    }
+    function ticketAlive(ticket) {
+      let key = get(/databases/$(database)/documents/keys/$(ticket.licenseKey)).data;
+      return ticket.createdAt is timestamp && ticket.createdAt <= request.time
+        && request.time < ticket.createdAt + duration.value(300, 's')
+        && ticket.pairVersion == key.get('menuPairVersion', 0)
+        && activeApp(ticket.licenseKey, ticket.appDeviceID, ticket.appAuthUID);
+    }
+    function matchesTicket(keyId, slot) {
+      let ticket = getAfter(/databases/$(database)/documents/menuTickets/$(slot.ticketHash)).data;
+      return slot.keys().hasOnly(['appDeviceID','appAuthUID','menuDeviceHash','menuAuthUID','nonce','ticketHash','pairedAt','pairVersion'])
+        && ticket.licenseKey == keyId && ticket.appDeviceID == slot.appDeviceID
+        && ticket.appAuthUID == slot.appAuthUID && ticket.menuDeviceHash == slot.menuDeviceHash
+        && ticket.nonce == slot.nonce && ticket.pairVersion == slot.pairVersion
+        && ticket.menuAuthUID == request.auth.uid && slot.menuAuthUID == request.auth.uid
+        && ticket.consumedAt == request.time && slot.pairedAt == request.time && ticketAlive(ticket);
+    }
+    match /menuTickets/{ticketHash} {
+      allow create: if request.auth != null && ticketHash.matches('[a-f0-9]{64}')
+        && request.resource.data.keys().hasOnly(['licenseKey','appDeviceID','appAuthUID','menuDeviceHash','nonce','createdAt','consumedAt','menuAuthUID','pairVersion'])
+        && request.resource.data.appAuthUID == request.auth.uid
+        && request.resource.data.menuDeviceHash.matches('[a-f0-9]{64}')
+        && request.resource.data.nonce.matches('[a-f0-9]{32}')
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.consumedAt == null && request.resource.data.menuAuthUID == ''
+        && ticketAlive(request.resource.data);
+      allow get: if request.auth != null && ticketAlive(resource.data)
+        && (resource.data.consumedAt == null || resource.data.menuAuthUID == request.auth.uid || resource.data.appAuthUID == request.auth.uid);
+      allow update: if request.auth != null && ticketAlive(resource.data)
+        && resource.data.consumedAt == null && request.resource.data.consumedAt == request.time
+        && request.resource.data.menuAuthUID == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['consumedAt','menuAuthUID'])
+        && getAfter(/databases/$(database)/documents/keys/$(resource.data.licenseKey)/menuSlots/primary).data.ticketHash == ticketHash
+        && matchesTicket(resource.data.licenseKey, getAfter(/databases/$(database)/documents/keys/$(resource.data.licenseKey)/menuSlots/primary).data);
+      allow delete, list: if isAdmin();
     }
     match /keys/{keyId} {
       allow read, list, create, update, delete: if isAdmin();
-      allow get: if request.auth != null && resource.data.get('allowed', false) == true && inWindow(resource.data);
+      allow get: if request.auth != null && resource.data.get('allowed', false) == true && inWindow(resource.data)
+        && (resource.data.get('authUID', '') == '' || resource.data.get('authUID', '') == request.auth.uid);
       allow update: if request.auth != null && resource.data.get('allowed', false) == true && inWindow(resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['devices', 'usedUsers', 'deviceID', 'authUID', 'boundAt', 'activatedAt'])
         && activationIsValid() && bindingIsValid();
       allow create, delete, list: if false;
+      match /menuSlots/{slotId} {
+        allow read, write: if isAdmin();
+        allow get: if appOwner(keyId) || (request.auth != null && resource.data.menuAuthUID == request.auth.uid
+          && activeApp(keyId, resource.data.appDeviceID, resource.data.appAuthUID)
+          && resource.data.pairVersion == get(/databases/$(database)/documents/keys/$(keyId)).data.get('menuPairVersion', 0));
+        allow create: if request.auth != null && slotId == 'primary' && matchesTicket(keyId, request.resource.data);
+        allow update: if request.auth != null && slotId == 'primary' && matchesTicket(keyId, request.resource.data)
+          && (resource.data.pairVersion != request.resource.data.pairVersion || resource.data.menuDeviceHash == request.resource.data.menuDeviceHash);
+        allow delete, list: if false;
+      }
     }
   }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import Security
+import CryptoKit
 
 // MARK: - Firebase configuration
 
@@ -187,6 +188,8 @@ struct LicenseKeyInfo {
     let activatedAt: Date?
     let updateTime: String?
     let timestampDeviceIDs: Set<String>
+    let authUID: String?
+    let menuPairVersion: Int
 }
 
 enum LicenseKeyError: LocalizedError {
@@ -241,6 +244,12 @@ final class LicenseManager: ObservableObject {
     @Published private(set) var keyInfo: LicenseKeyInfo?
     @Published var errorMessage: String?
 
+    @Published private(set) var menuSecretKey = ""
+    @Published private(set) var menuSecretPackage = ""
+    @Published private(set) var menuSecretMessage = "Mở game đến màn hình nhập secret, rồi quay lại đây lấy mã."
+    @Published private(set) var isGeneratingMenuSecret = false
+    private var menuSecretNonce = ""
+    private var menuSecretUntil = Date.distantPast
     private var authToken = ""
     private var authUID = ""
 
@@ -264,7 +273,9 @@ final class LicenseManager: ObservableObject {
         activeKey = ""
         authToken = ""
         authUID = ""
-        LicenseKeychain.deleteAuthSession()
+        menuSecretKey = ""
+        menuSecretNonce = ""
+        // Keep the installation auth identity; signing out must not create a second device slot.
         try? LicenseKeychain.deleteActiveKey()
     }
 
@@ -303,12 +314,70 @@ final class LicenseManager: ObservableObject {
             activeKey = key
             keyInfo = info
             isAuthorized = true
+            await generateAvailableMenuSecret()
             log("license: key \(key) authorized (device \(installationID.prefix(8))…)")
         } catch {
             isAuthorized = false
             let raw = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             errorMessage = friendlyLoginError(raw)
             log("license: validation failed — \(errorMessage ?? "unknown error")")
+        }
+    }
+
+    private func generateAvailableMenuSecret() async {
+        for package in ["com.dts.freefireth", "com.dts.freefiremax"] {
+            if (try? FreeFireRemoteAssetService.menuChallenge(forPackage: package)) != nil {
+                await generateMenuSecret(forPackage: package)
+                return
+            }
+        }
+    }
+
+    func generateMenuSecret(forPackage package: String) async {
+        guard isAuthorized, !activeKey.isEmpty, !isGeneratingMenuSecret else { return }
+        isGeneratingMenuSecret = true
+        defer { isGeneratingMenuSecret = false }
+        do {
+            let challenge = try FreeFireRemoteAssetService.menuChallenge(forPackage: package)
+            if menuSecretNonce == challenge.nonce && menuSecretPackage == package && Date() < menuSecretUntil && !menuSecretKey.isEmpty { return }
+            menuSecretKey = ""
+            let auth = try await authenticatedSession()
+            authToken = auth.idToken; authUID = auth.localId
+            let device = try LicenseKeychain.installationID()
+            let info = try await bindAndActivate(activeKey, deviceID: device)
+            do {
+                let slot = try await firestoreRequest(method: "GET", path: "keys/\(escapedDocumentID(activeKey))/menuSlots/primary")
+                let oldVersion = Int(slot.fields?["pairVersion"]?.integerValue ?? "0") ?? 0
+                if oldVersion == info.menuPairVersion, let hash = slot.fields?["menuDeviceHash"]?.stringValue, hash != challenge.menuDeviceHash {
+                    throw LicenseKeyError.server("Key đã ghép một menu khác. Reset key trong admin để đổi máy.")
+                }
+            } catch LicenseKeyError.invalidKey { /* The primary menu slot has not been created yet. */ }
+            var bytes = [UInt8](repeating: 0, count: 16)
+            guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else { throw LicenseKeyError.invalidResponse }
+            let secret = bytes.map { String(format: "%02x", $0) }.joined()
+            let hash = SHA256.hash(data: Data(secret.utf8)).map { String(format: "%02x", $0) }.joined()
+            let fields: [String: Any] = [
+                "licenseKey": ["stringValue": activeKey], "appDeviceID": ["stringValue": device],
+                "appAuthUID": ["stringValue": authUID], "menuDeviceHash": ["stringValue": challenge.menuDeviceHash],
+                "nonce": ["stringValue": challenge.nonce], "pairVersion": ["integerValue": "\(info.menuPairVersion)"],
+                "consumedAt": ["nullValue": NSNull()], "menuAuthUID": ["stringValue": ""]
+            ]
+            let write: [String: Any] = [
+                "update": ["name": "projects/\(FirebaseKeyConfiguration.projectID)/databases/(default)/documents/menuTickets/\(hash)", "fields": fields],
+                "currentDocument": ["exists": false],
+                "updateTransforms": [["fieldPath": "createdAt", "setToServerValue": "REQUEST_TIME"]]
+            ]
+            _ = try await firestoreRequestRaw(method: "POST", path: ":commit", body: ["writes": [write]])
+            menuSecretKey = stride(from: 0, to: secret.count, by: 4).map { offset in
+                let a = secret.index(secret.startIndex, offsetBy: offset), b = secret.index(a, offsetBy: 4)
+                return String(secret[a..<b]).uppercased()
+            }.joined(separator: "-")
+            menuSecretPackage = package; menuSecretNonce = challenge.nonce
+            menuSecretUntil = Date().addingTimeInterval(300)
+            menuSecretMessage = "Secret dùng một lần trong 5 phút, chỉ cho menu đang yêu cầu trên máy này."
+        } catch {
+            menuSecretKey = ""
+            menuSecretMessage = error.localizedDescription
         }
     }
 
@@ -351,7 +420,9 @@ final class LicenseManager: ObservableObject {
                     refreshToken: refreshed.refreshToken
                 )
             } catch {
-                LicenseKeychain.deleteAuthSession()
+                // Keep the installation identity on refresh/network failure.
+                // A new anonymous UID would lose this device's license slot.
+                throw error
             }
         }
 
@@ -429,7 +500,7 @@ final class LicenseManager: ObservableObject {
             return def
         }
 
-        let maxUsers = max(1, intField("maxUsers", default: 1))
+        let maxUsers = 1
         let usedUsers = max(0, intField("usedUsers", default: 0))
 
         let activatedAt = fields["activatedAt"]?.timestampValue.flatMap(parseDate)
@@ -443,7 +514,8 @@ final class LicenseManager: ObservableObject {
             boundAt: fields["boundAt"]?.timestampValue.flatMap(parseDate),
             maxUsers: maxUsers, usedUsers: usedUsers, expiresAt: expiry, devices: devices,
             durationSeconds: durationSeconds, activatedAt: activatedAt,
-            updateTime: document.updateTime, timestampDeviceIDs: timestampDeviceIDs
+            updateTime: document.updateTime, timestampDeviceIDs: timestampDeviceIDs,
+            authUID: fields["authUID"]?.stringValue, menuPairVersion: intField("menuPairVersion", default: 0)
         )
     }
 
@@ -460,9 +532,10 @@ final class LicenseManager: ObservableObject {
             let info = try await fetchKey(key)
             guard info.allowed else { throw LicenseKeyError.disabled }
             if let expires = info.expiresAt, expires <= Date() { throw LicenseKeyError.expired }
+            if let primary = info.deviceID, !primary.isEmpty, primary != deviceID { throw LicenseKeyError.alreadyBound }
             let known = info.devices[deviceID] != nil || info.deviceID == deviceID
             let pending = info.durationSeconds != nil && info.activatedAt == nil && info.expiresAt == nil
-            if known && !pending { return info }
+            if known && !pending && info.authUID == authUID { return info }
             let legacyCount = info.deviceID?.isEmpty == false && info.devices[info.deviceID!] == nil ? 1 : 0
             let used = max(info.usedUsers, info.devices.count + legacyCount)
             if !known && used >= info.maxUsers { throw LicenseKeyError.maxUsersReached }
