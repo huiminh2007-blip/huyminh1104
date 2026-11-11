@@ -42,6 +42,7 @@ service cloud.firestore {
     function activeApp(keyId, device, uid) {
       let key = get(/databases/$(database)/documents/keys/$(keyId)).data;
       return key.get('allowed', false) && inWindow(key) && key.get('deviceID', '') == device
+        && (key.get('durationSeconds', null) == null || key.get('expiresAt', null) != null || key.get('activatedAt', null) is timestamp)
         && device != '' && key.get('authUID', '') == uid;
     }
     function appOwner(keyId) {
