@@ -1,23 +1,6 @@
 import Foundation
 import UIKit
 
-struct BundledAimPatch: Identifiable, Hashable {
-    let id: String
-    let title: String
-    let resourceName: String
-}
-
-struct BundledChamsPatch: Identifiable, Hashable {
-    enum Kind: String {
-        case character
-        case gun
-    }
-    let id: String
-    let title: String
-    let resourceName: String
-    let kind: Kind
-}
-
 enum FreeFireBundledPatchIO {
     static func packageURL(resourceName: String, subdirectory: String) -> URL? {
         let name = (resourceName as NSString).deletingPathExtension
@@ -54,78 +37,6 @@ enum FreeFireBundledPatchIO {
         return DevicePatchService.latestReceipt(projectID: project.id) != nil
     }
 }
-
-enum FreeFireAimToggleService {
-    private static let subdirectory = "BundledPatches/FFTHAim"
-
-    static let patches: [BundledAimPatch] = {
-        if let url = Bundle.main.url(forResource: "catalog", withExtension: "json", subdirectory: subdirectory)
-            ?? Bundle.main.url(forResource: "catalog", withExtension: "json"),
-           let data = try? Data(contentsOf: url),
-           let rows = try? JSONSerialization.jsonObject(with: data) as? [[String: String]] {
-            let mapped = rows.compactMap { row -> BundledAimPatch? in
-                guard let id = row["id"], let title = row["title"], let resource = row["resource"] else { return nil }
-                return BundledAimPatch(id: id, title: title, resourceName: resource)
-            }
-            if !mapped.isEmpty { return mapped }
-        }
-        return [
-            BundledAimPatch(id: "aim_body", title: "Aim Body", resourceName: "Aim_Body.1411"),
-            BundledAimPatch(id: "aim_co", title: "Aim Cổ", resourceName: "Aim_Co.1411"),
-            BundledAimPatch(id: "aim_keo", title: "Aim Kéo", resourceName: "Aim_Keo.1411"),
-            BundledAimPatch(id: "aim_nguc", title: "Aim Ngực", resourceName: "Aim_Nguc.1411"),
-            BundledAimPatch(id: "magic_bullet", title: "Magic Bullet", resourceName: "Magic_Bullet.1411"),
-        ]
-    }()
-
-    static func apply(patch: BundledAimPatch) throws {
-        try FreeFireBundledPatchIO.apply(resourceName: patch.resourceName, subdirectory: subdirectory)
-    }
-
-    static func restore(patch: BundledAimPatch) throws {
-        try FreeFireBundledPatchIO.restore(resourceName: patch.resourceName, subdirectory: subdirectory)
-    }
-
-    static func isApplied(patch: BundledAimPatch) -> Bool {
-        FreeFireBundledPatchIO.isApplied(resourceName: patch.resourceName, subdirectory: subdirectory)
-    }
-}
-
-enum FreeFireChamsToggleService {
-    private static let subdirectory = "BundledPatches/FFTHLocation"
-
-    static let patches: [BundledChamsPatch] = {
-        if let url = Bundle.main.url(forResource: "chams_catalog", withExtension: "json", subdirectory: subdirectory)
-            ?? Bundle.main.url(forResource: "chams_catalog", withExtension: "json"),
-           let data = try? Data(contentsOf: url),
-           let rows = try? JSONSerialization.jsonObject(with: data) as? [[String: String]] {
-            let mapped = rows.compactMap { row -> BundledChamsPatch? in
-                guard let id = row["id"], let title = row["title"], let resource = row["resource"] else { return nil }
-                let kind = BundledChamsPatch.Kind(rawValue: row["kind"] ?? "") ?? .gun
-                return BundledChamsPatch(id: id, title: title, resourceName: resource, kind: kind)
-            }
-            if !mapped.isEmpty { return mapped }
-        }
-        return [
-            BundledChamsPatch(id: "chams_nhan_vat", title: "Chams Nhân Vật", resourceName: "Chams_Nhan_Vat.1411", kind: .character),
-            BundledChamsPatch(id: "chams_sung_den", title: "Chams súng đen trắng", resourceName: "Chams_Sung_Den_Trang.1411", kind: .gun),
-            BundledChamsPatch(id: "chams_sung_do", title: "Chams súng đỏ trắng", resourceName: "Chams_Sung_Do_Trang.1411", kind: .gun),
-        ]
-    }()
-
-    static func apply(patch: BundledChamsPatch) throws {
-        try FreeFireBundledPatchIO.apply(resourceName: patch.resourceName, subdirectory: subdirectory)
-    }
-
-    static func restore(patch: BundledChamsPatch) throws {
-        try FreeFireBundledPatchIO.restore(resourceName: patch.resourceName, subdirectory: subdirectory)
-    }
-
-    static func isApplied(patch: BundledChamsPatch) -> Bool {
-        FreeFireBundledPatchIO.isApplied(resourceName: patch.resourceName, subdirectory: subdirectory)
-    }
-}
-
 
 struct BundledModPatch: Identifiable, Hashable {
     let id: String

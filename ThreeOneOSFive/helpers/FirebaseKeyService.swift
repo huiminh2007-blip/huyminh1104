@@ -148,6 +148,7 @@ private struct RefreshAuthResponse: Decodable {
 private struct FirestoreDocument: Decodable {
     let name: String?
     let fields: [String: FirestoreValue]?
+    let updateTime: String?
 }
 
 private struct FirestoreValue: Decodable {
@@ -180,8 +181,12 @@ struct LicenseKeyInfo {
     let maxUsers: Int
     let usedUsers: Int
     let expiresAt: Date?
-    /// deviceID -> boundAt ISO string (multi-device map)
+    /// deviceID -> auth UID; legacy timestamp entries retain their original type.
     let devices: [String: String]
+    let durationSeconds: Int?
+    let activatedAt: Date?
+    let updateTime: String?
+    let timestampDeviceIDs: Set<String>
 }
 
 enum LicenseKeyError: LocalizedError {
@@ -190,6 +195,7 @@ enum LicenseKeyError: LocalizedError {
     case alreadyBound
     case maxUsersReached
     case expired
+    case concurrentUpdate
     case notConfigured
     case authenticationFailed
     case keychain(OSStatus)
@@ -207,6 +213,8 @@ enum LicenseKeyError: LocalizedError {
             return "Key này đã được liên kết với thiết bị khác."
         case .maxUsersReached:
             return "Key đã đạt giới hạn số thiết bị được phép."
+        case .concurrentUpdate:
+            return "Key vừa được cập nhật. Vui lòng thử lại."
         case .expired:
             return "Key đã hết hạn sử dụng."
         case .notConfigured:
@@ -289,59 +297,11 @@ final class LicenseManager: ObservableObject {
             authToken = auth.idToken
             authUID = auth.localId
 
-            let info = try await fetchKey(key)
-            guard info.allowed else { throw LicenseKeyError.disabled }
-
-            // Check expiry
-            if let expires = info.expiresAt, expires < Date() {
-                throw LicenseKeyError.expired
-            }
-
             let installationID = try LicenseKeychain.installationID()
-
-            // Already bound on this device?
-            let alreadyBoundHere = info.devices.keys.contains(installationID)
-                || (info.deviceID == installationID)
-
-            if alreadyBoundHere {
-                // OK – this device is already registered
-            } else {
-                // Need to register a new device slot
-                let currentUsed = max(info.usedUsers, info.devices.count)
-                // Legacy single-device fallback
-                let legacyUsed = (info.deviceID?.isEmpty == false && info.devices.isEmpty) ? 1 : 0
-                let effectiveUsed = max(currentUsed, legacyUsed)
-
-                if effectiveUsed >= info.maxUsers {
-                    throw LicenseKeyError.maxUsersReached
-                }
-
-                // Bind this device
-                try await bindDevice(
-                    key,
-                    deviceID: installationID,
-                    previousUsed: effectiveUsed,
-                    previousDevices: info.devices,
-                    legacyDeviceID: info.deviceID
-                )
-            }
-
-            if saveOnSuccess {
-                try LicenseKeychain.saveActiveKey(key)
-            }
-
+            let info = try await bindAndActivate(key, deviceID: installationID)
+            if saveOnSuccess { try LicenseKeychain.saveActiveKey(key) }
             activeKey = key
-            keyInfo = LicenseKeyInfo(
-                key: key,
-                allowed: true,
-                deviceID: installationID,
-                note: info.note,
-                boundAt: info.boundAt ?? Date(),
-                maxUsers: info.maxUsers,
-                usedUsers: alreadyBoundHere ? info.usedUsers : (info.usedUsers + 1),
-                expiresAt: info.expiresAt,
-                devices: info.devices
-            )
+            keyInfo = info
             isAuthorized = true
             log("license: key \(key) authorized (device \(installationID.prefix(8))…)")
         } catch {
@@ -450,10 +410,12 @@ final class LicenseManager: ObservableObject {
 
         // Parse devices map (preferred multi-device storage)
         var devices: [String: String] = [:]
+        var timestampDeviceIDs = Set<String>()
         if let mapFields = fields["devices"]?.mapValue?.fields {
             for (devId, val) in mapFields {
                 if let ts = val.timestampValue {
                     devices[devId] = ts
+                    timestampDeviceIDs.insert(devId)
                 } else if let s = val.stringValue {
                     devices[devId] = s
                 }
@@ -470,68 +432,77 @@ final class LicenseManager: ObservableObject {
         let maxUsers = max(1, intField("maxUsers", default: 1))
         let usedUsers = max(0, intField("usedUsers", default: 0))
 
-        let expiresAt: Date? = fields["expiresAt"]?.timestampValue.flatMap {
-            ISO8601DateFormatter().date(from: $0)
-        }
-
+        let activatedAt = fields["activatedAt"]?.timestampValue.flatMap(parseDate)
+        let durationSeconds = fields["durationSeconds"]?.integerValue.flatMap(Int.init)
+        if let durationSeconds, !(1...315360000).contains(durationSeconds) { throw LicenseKeyError.invalidResponse }
+        let fixedExpiry = fields["expiresAt"]?.timestampValue.flatMap(parseDate)
+        let expiry = fixedExpiry ?? activatedAt.flatMap { start in durationSeconds.map { start.addingTimeInterval(TimeInterval($0)) } }
         return LicenseKeyInfo(
-            key: key,
-            allowed: fields["allowed"]?.booleanValue ?? false,
-            deviceID: fields["deviceID"]?.stringValue,
-            note: fields["note"]?.stringValue,
-            boundAt: fields["boundAt"]?.timestampValue.flatMap { ISO8601DateFormatter().date(from: $0) },
-            maxUsers: maxUsers,
-            usedUsers: usedUsers,
-            expiresAt: expiresAt,
-            devices: devices
+            key: key, allowed: fields["allowed"]?.booleanValue ?? false,
+            deviceID: fields["deviceID"]?.stringValue, note: fields["note"]?.stringValue,
+            boundAt: fields["boundAt"]?.timestampValue.flatMap(parseDate),
+            maxUsers: maxUsers, usedUsers: usedUsers, expiresAt: expiry, devices: devices,
+            durationSeconds: durationSeconds, activatedAt: activatedAt,
+            updateTime: document.updateTime, timestampDeviceIDs: timestampDeviceIDs
         )
     }
 
-    /// Register the current device under a multi-user key.
-    private func bindDevice(
-        _ key: String,
-        deviceID: String,
-        previousUsed: Int,
-        previousDevices: [String: String],
-        legacyDeviceID: String?
-    ) async throws {
+    private func parseDate(_ raw: String) -> Date? {
+        let format = ISO8601DateFormatter()
+        format.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return format.date(from: raw) ?? ISO8601DateFormatter().date(from: raw)
+    }
+
+    // Optimistic compare-and-swap: concurrent bindings cannot overwrite each
+    // other or restart a finite key's first server activation timestamp.
+    private func bindAndActivate(_ key: String, deviceID: String) async throws -> LicenseKeyInfo {
+        for attempt in 0..<4 {
+            let info = try await fetchKey(key)
+            guard info.allowed else { throw LicenseKeyError.disabled }
+            if let expires = info.expiresAt, expires <= Date() { throw LicenseKeyError.expired }
+            let known = info.devices[deviceID] != nil || info.deviceID == deviceID
+            let pending = info.durationSeconds != nil && info.activatedAt == nil && info.expiresAt == nil
+            if known && !pending { return info }
+            let legacyCount = info.deviceID?.isEmpty == false && info.devices[info.deviceID!] == nil ? 1 : 0
+            let used = max(info.usedUsers, info.devices.count + legacyCount)
+            if !known && used >= info.maxUsers { throw LicenseKeyError.maxUsersReached }
+            do {
+                try await bindDevice(key, deviceID: deviceID, info: info, used: used, known: known, activate: pending)
+                let confirmed = try await fetchKey(key)
+                guard confirmed.allowed else { throw LicenseKeyError.disabled }
+                if let expires = confirmed.expiresAt, expires <= Date() { throw LicenseKeyError.expired }
+                if confirmed.durationSeconds != nil && confirmed.expiresAt == nil { throw LicenseKeyError.invalidResponse }
+                return confirmed
+            } catch LicenseKeyError.concurrentUpdate {
+                if attempt == 3 { throw LicenseKeyError.concurrentUpdate }
+            }
+        }
+        throw LicenseKeyError.concurrentUpdate
+    }
+
+    private func bindDevice(_ key: String, deviceID: String, info: LicenseKeyInfo, used: Int, known: Bool, activate: Bool) async throws {
+        guard let updateTime = info.updateTime else { throw LicenseKeyError.invalidResponse }
         let documentPath = "keys/\(escapedDocumentID(key))"
-        let nowISO = ISO8601DateFormatter().string(from: Date())
-        let newUsed = previousUsed + 1
-
-        // Build devices mapValue including all previous + this one
         var deviceFields: [String: Any] = [:]
-        for (id, ts) in previousDevices {
-            deviceFields[id] = ["timestampValue": ts]
+        for (id, value) in info.devices {
+            deviceFields[id] = [(info.timestampDeviceIDs.contains(id) ? "timestampValue" : "stringValue"): value]
         }
-        // Migrate legacy single deviceID if present
-        if let legacy = legacyDeviceID, !legacy.isEmpty, previousDevices[legacy] == nil {
-            deviceFields[legacy] = ["timestampValue": nowISO]
-        }
-        deviceFields[deviceID] = ["timestampValue": nowISO]
-
-        var fields: [String: Any] = [
-            "devices": [
-                "mapValue": [
-                    "fields": deviceFields
-                ]
-            ],
-            "usedUsers": ["integerValue": "\(newUsed)"],
-            // Keep legacy fields in sync for admin panel compatibility
-            "deviceID": ["stringValue": deviceID],
-            "boundAt": ["timestampValue": nowISO]
+        if deviceFields[deviceID] == nil { deviceFields[deviceID] = ["stringValue": authUID] }
+        let fields: [String: Any] = [
+            "devices": ["mapValue": ["fields": deviceFields]],
+            "usedUsers": ["integerValue": "\(known ? used : used + 1)"],
+            "deviceID": ["stringValue": deviceID], "authUID": ["stringValue": authUID]
         ]
-
-        let fieldNames = ["devices", "usedUsers", "deviceID", "boundAt"]
-        let mask = fieldNames.map {
-            "updateMask.fieldPaths=\($0.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? $0)"
-        }.joined(separator: "&")
-
-        let body: [String: Any] = [
-            "name": "projects/\(FirebaseKeyConfiguration.projectID)/databases/(default)/documents/\(documentPath)",
-            "fields": fields
+        var write: [String: Any] = [
+            "update": ["name": "projects/\(FirebaseKeyConfiguration.projectID)/databases/(default)/documents/\(documentPath)", "fields": fields],
+            "updateMask": ["fieldPaths": Array(fields.keys).sorted()],
+            "currentDocument": ["updateTime": updateTime]
         ]
-        _ = try await firestoreRequestRaw(method: "PATCH", path: "\(documentPath)?\(mask)", body: body)
+        var transforms: [[String: Any]] = []
+        if activate { transforms.append(["fieldPath": "activatedAt", "setToServerValue": "REQUEST_TIME"]) }
+        if info.boundAt == nil { transforms.append(["fieldPath": "boundAt", "setToServerValue": "REQUEST_TIME"]) }
+        if !transforms.isEmpty { write["updateTransforms"] = transforms }
+        _ = try await firestoreRequestRaw(method: "POST", path: ":commit", body: ["writes": [write]])
     }
 
     private func firestoreRequest(method: String, path: String) async throws -> FirestoreDocument {
@@ -544,9 +515,10 @@ final class LicenseManager: ObservableObject {
     }
 
     private func firestoreRequestRaw(method: String, path: String, body: [String: Any]? = nil) async throws -> Data {
+        let suffix = path.hasPrefix(":") ? path : "/" + path
         guard !authToken.isEmpty,
               let encodedProject = FirebaseKeyConfiguration.projectID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
-              let url = URL(string: "https://firestore.googleapis.com/v1/projects/\(encodedProject)/databases/(default)/documents/\(path)") else {
+              let url = URL(string: "https://firestore.googleapis.com/v1/projects/\(encodedProject)/databases/(default)/documents\(suffix)") else {
             throw LicenseKeyError.notConfigured
         }
 
@@ -568,6 +540,7 @@ final class LicenseManager: ObservableObject {
             throw LicenseKeyError.network("Phản hồi không hợp lệ")
         }
         guard (200..<300).contains(http.statusCode) else {
+            if http.statusCode == 409 || http.statusCode == 412 { throw LicenseKeyError.concurrentUpdate }
             if http.statusCode == 404 {
                 throw LicenseKeyError.invalidKey
             }

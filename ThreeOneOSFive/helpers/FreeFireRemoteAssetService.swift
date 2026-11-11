@@ -1,19 +1,7 @@
 import Foundation
+import CryptoKit
 
 // MARK: - Models
-
-struct RemoteAimItem: Identifiable, Hashable {
-    let id: String
-    let title: String
-    /// Path under funcition repo, e.g. AIM/FFTH/AIM HEAD
-    let remoteDir: String
-}
-
-struct RemoteChamsItem: Identifiable, Hashable {
-    let id: String
-    let title: String
-    let remoteDir: String
-}
 
 struct RemoteMenuItem: Identifiable, Hashable {
     let id: String
@@ -69,72 +57,14 @@ enum FreeFireRemoteAssetService {
     }
 
 
-    /// Aim destination inside game container (FF + Max cùng relative path)
-    static let aimRelativeDir = "Documents/contentcache/Compulsory/ios/gameassetbundles/avatar"
-    /// Chams shader destination for both Free Fire and Free Fire Max.
-    static let chamsRelativeDir = "Documents/contentcache/Optional/ios/gameassetbundles"
     static let modRelativeDir = "Documents/contentcache/Optional/ios/optionalavatarres/gameassetbundles"
     static let menuRelativeDir = "Documents"
     static let otherRelativeDir = "Documents"
-
-    private static let aimFolderNames: [String] = [
-        "AIM HEAD + ANTENA",
-        "AIM BỤNG",
-        "AIM NECK",
-        "MAGIC",
-        "AIM DỊ TẬT",
-        "AIM CHEST",
-        "AIM DRAG",
-        "AIM HEAD",
-    ]
-
-    // MARK: Aim — FFTH = Free Fire, FFM = Free Fire Max
-
-    static func aimItems(forPackage package: String) -> [RemoteAimItem] {
-        let side = (package == "com.dts.freefiremax") ? "FFM" : "FFTH"
-        return aimFolderNames.map { name in
-            RemoteAimItem(
-                id: "\(side)-\(name)",
-                title: name,
-                remoteDir: "AIM/\(side)/\(name)"
-            )
-        }
-    }
-
-    // MARK: Chams — one remote shader per game flavor
-
-    static func chamsItems(forPackage package: String) -> [RemoteChamsItem] {
-        let side = (package == "com.dts.freefiremax") ? "FFM" : "FFTH"
-        return [
-            RemoteChamsItem(
-                id: "\(side)-CHAMS",
-                title: "Chams",
-                remoteDir: "CHAMS/\(side)"
-            )
-        ]
-    }
-
-    // MARK: Menu
+    private static let mizoraFiles = ["Assembly-CSharp-patch.bytes", "localConfig.json"]
 
     static func menuItems(forPackage package: String) -> [RemoteMenuItem] {
-        if package == "com.dts.freefiremax" {
-            return [
-                RemoteMenuItem(id: "FFM-V1", title: "MENU V1", remoteDir: "MENU/FFM/FFM V1"),
-                RemoteMenuItem(id: "FFM-V2", title: "MENU V2", remoteDir: "MENU/FFM/FFM V2"),
-                RemoteMenuItem(id: "FFM-AIMBOT-HIDE", title: "AIMBOT HIDE", remoteDir: "MENU/FFM/FFM AIMBOT HIDE"),
-                RemoteMenuItem(id: "FFM-CANCHECK-R8", title: "CANCHECK R8", remoteDir: "MENU/FFM/FFM CANCHECK R8"),
-                RemoteMenuItem(id: "FFM-ESP-NO-AIM", title: "ESP NO AIM", remoteDir: "MENU/FFM/FFM ESP NO AIM"),
-                RemoteMenuItem(id: "FFM-R8-ESP", title: "R8 + ESP", remoteDir: "MENU/FFM/FFM R8 + ESP"),
-            ]
-        }
-        return [
-            RemoteMenuItem(id: "FFTH-V1", title: "MENU V1", remoteDir: "MENU/FFTH/FFTH V1"),
-            RemoteMenuItem(id: "FFTH-V2", title: "MENU V2", remoteDir: "MENU/FFTH/FFTH V2"),
-            RemoteMenuItem(id: "FFTH-AIMBOT-HIDE", title: "AIMBOT HIDE", remoteDir: "MENU/FFTH/FFTH AIMBOT HIDE"),
-            RemoteMenuItem(id: "FFTH-CANCHECK-R8", title: "CANCHECK R8", remoteDir: "MENU/FFTH/FFTH CANCHECK R8"),
-            RemoteMenuItem(id: "FFTH-ESP-NO-AIM", title: "ESP NO AIM", remoteDir: "MENU/FFTH/FFTH ESP NO AIM"),
-            RemoteMenuItem(id: "FFTH-R8-ESP", title: "R8 + ESP", remoteDir: "MENU/FFTH/FFTH R8 + ESP"),
-        ]
+        guard package == "com.dts.freefireth" else { return [] }
+        return [RemoteMenuItem(id: "FFTH-MIZORA", title: "Mizora", remoteDir: "MENU/FFTH/Mizora")]
     }
 
     // MARK: Other
@@ -227,14 +157,6 @@ enum FreeFireRemoteAssetService {
         UserDefaults.standard.stringArray(forKey: defaultsKey(package: package, feature: "menu.\(item.id)")) != nil
     }
 
-    static func isAimApplied(package: String, item: RemoteAimItem) -> Bool {
-        UserDefaults.standard.string(forKey: defaultsKey(package: package, feature: "aim.\(item.id)")) != nil
-    }
-
-    static func isChamsApplied(package: String, item: RemoteChamsItem) -> Bool {
-        UserDefaults.standard.string(forKey: defaultsKey(package: package, feature: "chams.\(item.id)")) != nil
-    }
-
     static func isModVersionApplied(package: String, version: RemoteModVersion) -> Bool {
         UserDefaults.standard.string(forKey: defaultsKey(package: package, feature: "mod.\(version.id)")) != nil
     }
@@ -242,75 +164,75 @@ enum FreeFireRemoteAssetService {
     // MARK: Menu apply / restore
 
     static func applyMenu(package: String, item: RemoteMenuItem) throws {
-        let remoteDir = repoPath(item.remoteDir)
-        let files = try listRemoteFiles(inRepoPath: remoteDir)
-        guard !files.isEmpty else { throw FreeFireRemoteAssetError.remoteEmpty(remoteDir) }
-        let destDir = try containerDir(bundleID: package, relative: menuRelativeDir)
-        var written: [String] = []
-        for file in files {
-            let data = try download(urlString: file.downloadURL)
-            try writeReplacing(data: data, to: destDir.appendingPathComponent(file.name))
-            written.append(file.name)
+        guard menuItems(forPackage: package).contains(item) else {
+            throw FreeFireRemoteAssetError.remoteEmpty("Mizora chưa hỗ trợ bản game này")
         }
-        UserDefaults.standard.set(written, forKey: defaultsKey(package: package, feature: "menu.\(item.id)"))
+        let files = try listRemoteFiles(inRepoPath: repoPath(item.remoteDir))
+        guard let manifestFile = files.first(where: { $0.name == "manifest.json" }),
+              let manifest = try JSONSerialization.jsonObject(with: download(urlString: manifestFile.downloadURL)) as? [String: Any],
+              manifest["targetPackage"] as? String == package,
+              let hashes = manifest["files"] as? [String: String],
+              Set(hashes.keys) == Set(mizoraFiles) else {
+            throw FreeFireRemoteAssetError.downloadFailed("Manifest Mizora không hợp lệ")
+        }
+        // Fetch and validate the entire pair before touching the destination.
+        var payload: [String: Data] = [:]
+        for name in mizoraFiles {
+            guard let file = files.first(where: { $0.name == name }) else {
+                throw FreeFireRemoteAssetError.remoteEmpty(name)
+            }
+            let data = try download(urlString: file.downloadURL)
+            let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+            guard digest == hashes[name]?.lowercased() else {
+                throw FreeFireRemoteAssetError.downloadFailed("Checksum không khớp: \(name)")
+            }
+            if name == "localConfig.json" {
+                guard (try JSONSerialization.jsonObject(with: data)) is [String: Any] else {
+                    throw FreeFireRemoteAssetError.downloadFailed("localConfig.json không hợp lệ")
+                }
+            } else {
+                guard Array(data.prefix(8)) == [0xcb, 0xa2, 0xb4, 0x0d, 0xb2, 0x19, 0xa3, 0x66] else {
+                    throw FreeFireRemoteAssetError.downloadFailed("Assembly không phải IFix payload hợp lệ")
+                }
+            }
+            payload[name] = data
+        }
+        let destDir = try containerDir(bundleID: package, relative: menuRelativeDir)
+        let stateKey = defaultsKey(package: package, feature: "menu.\(item.id)")
+        let fm = FileManager.default
+        var originals: [String: Data] = [:]
+        for name in mizoraFiles {
+            let url = destDir.appendingPathComponent(name)
+            if fm.fileExists(atPath: url.path) { originals[name] = try Data(contentsOf: url) }
+        }
+        // A receipt also makes an interrupted installation removable on restart.
+        UserDefaults.standard.set(mizoraFiles, forKey: stateKey)
+        do {
+            for name in mizoraFiles { try payload[name]!.write(to: destDir.appendingPathComponent(name), options: .atomic) }
+        } catch {
+            var rollbackFailed = false
+            for name in mizoraFiles {
+                let url = destDir.appendingPathComponent(name)
+                do {
+                    if let data = originals[name] { try data.write(to: url, options: .atomic) }
+                    else if fm.fileExists(atPath: url.path) { try fm.removeItem(at: url) }
+                } catch { rollbackFailed = true }
+            }
+            if !rollbackFailed { UserDefaults.standard.removeObject(forKey: stateKey) }
+            throw FreeFireRemoteAssetError.writeFailed(rollbackFailed ? "Cài chưa hoàn tất. Tắt Mizora để dọn hai file." : error.localizedDescription)
+        }
     }
 
     static func restoreMenu(package: String, item: RemoteMenuItem) throws {
+        guard menuItems(forPackage: package).contains(item) else { throw FreeFireRemoteAssetError.writeFailed("Mục menu không hợp lệ") }
         let key = defaultsKey(package: package, feature: "menu.\(item.id)")
+        guard let names = UserDefaults.standard.stringArray(forKey: key) else { return }
+        guard Set(names) == Set(mizoraFiles) else { throw FreeFireRemoteAssetError.writeFailed("Biên nhận Mizora không hợp lệ") }
         let destDir = try containerDir(bundleID: package, relative: menuRelativeDir)
-        if let names = UserDefaults.standard.stringArray(forKey: key) {
-            for name in names {
-                try? FileManager.default.removeItem(at: destDir.appendingPathComponent(name))
-            }
-        }
-        UserDefaults.standard.removeObject(forKey: key)
-    }
-
-    // MARK: Aim apply / restore
-    // Bật: lấy file cuối cùng trong AIM/<FFM|FFTH>/<tên AIM>
-    // Tắt: lấy file cuối cùng trong AIM/<FFM|FFTH>/GOC và ghi đè cùng vị trí đích.
-    // Các file ẩn / .gitkeep không được coi là asset.
-
-    static func applyAim(package: String, item: RemoteAimItem) throws {
-        let remoteDir = repoPath(item.remoteDir)
-        let file = try lastRemoteAssetFile(inRepoPath: remoteDir)
-        let data = try download(urlString: file.downloadURL)
-        let destDir = try containerDir(bundleID: package, relative: aimRelativeDir)
-        try writeReplacing(data: data, to: destDir.appendingPathComponent(file.name))
-        UserDefaults.standard.set(file.name, forKey: defaultsKey(package: package, feature: "aim.\(item.id)"))
-    }
-
-    static func restoreAim(package: String, item: RemoteAimItem) throws {
-        let side = (package == "com.dts.freefiremax") ? "FFM" : "FFTH"
-        let gocDir = repoPath("AIM/\(side)/GOC")
-        let file = try lastRemoteAssetFile(inRepoPath: gocDir)
-        let data = try download(urlString: file.downloadURL)
-        let destDir = try containerDir(bundleID: package, relative: aimRelativeDir)
-
-        // Tắt AIM không xóa asset đích. Thay vào đó, ghi file GOC vào đúng vị trí
-        // để trả game về trạng thái gốc / trạng thái mặc định.
-        try writeReplacing(data: data, to: destDir.appendingPathComponent(file.name))
-        UserDefaults.standard.removeObject(forKey: defaultsKey(package: package, feature: "aim.\(item.id)"))
-    }
-
-    // MARK: Chams apply / restore
-    // Bật: lấy file shader cuối cùng trong CHAMS/<FFM|FFTH>.
-    // Tắt: xóa đúng file đã ghi vào gameassetbundles.
-
-    static func applyChams(package: String, item: RemoteChamsItem) throws {
-        let remoteDir = repoPath(item.remoteDir)
-        let file = try lastRemoteAssetFile(inRepoPath: remoteDir)
-        let data = try download(urlString: file.downloadURL)
-        let destDir = try containerDir(bundleID: package, relative: chamsRelativeDir)
-        try writeReplacing(data: data, to: destDir.appendingPathComponent(file.name))
-        UserDefaults.standard.set(file.name, forKey: defaultsKey(package: package, feature: "chams.\(item.id)"))
-    }
-
-    static func restoreChams(package: String, item: RemoteChamsItem) throws {
-        let key = defaultsKey(package: package, feature: "chams.\(item.id)")
-        let destDir = try containerDir(bundleID: package, relative: chamsRelativeDir)
-        if let name = UserDefaults.standard.string(forKey: key) {
-            try? FileManager.default.removeItem(at: destDir.appendingPathComponent(name))
+        // No download or directory-wide deletion when switching off.
+        for name in mizoraFiles {
+            let url = destDir.appendingPathComponent(name)
+            if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }
         }
         UserDefaults.standard.removeObject(forKey: key)
     }

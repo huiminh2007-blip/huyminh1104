@@ -1240,32 +1240,8 @@ private struct FreeFireGamePanel: View {
                     toggleMenu(item)
                 }
             }
-        case .aim:
-            ForEach(FreeFireRemoteAssetService.aimItems(forPackage: package)) { item in
-                remoteFeatureRow(
-                    id: "aim.\(item.id)",
-                    title: item.title,
-                    subtitle: "file đích → .../gameassetbundles/avatar",
-                    badge: "REMOTE",
-                    systemImage: "scope",
-                    on: appliedIDs.contains("aim.\(item.id)")
-                ) {
-                    toggleAim(item)
-                }
-            }
-        case .chams:
-            ForEach(FreeFireRemoteAssetService.chamsItems(forPackage: package)) { item in
-                remoteFeatureRow(
-                    id: "chams.\(item.id)",
-                    title: item.title,
-                    subtitle: "shader → .../contentcache/Optional/ios/gameassetbundles",
-                    badge: game.isFreeFireMax ? "FFM" : "FFTH",
-                    systemImage: "person.crop.circle.badge.checkmark",
-                    on: appliedIDs.contains("chams.\(item.id)")
-                ) {
-                    toggleChams(item)
-                }
-            }
+        case .aim, .chams:
+            EmptyView()
         case .mods:
             let characters = FreeFireRemoteAssetService.modCharacters(forPackage: package)
             if characters.isEmpty {
@@ -1496,16 +1472,6 @@ private struct FreeFireGamePanel: View {
                 set.insert("menu.\(item.id)")
             }
         }
-        for item in FreeFireRemoteAssetService.aimItems(forPackage: package) {
-            if FreeFireRemoteAssetService.isAimApplied(package: package, item: item) {
-                set.insert("aim.\(item.id)")
-            }
-        }
-        for item in FreeFireRemoteAssetService.chamsItems(forPackage: package) {
-            if FreeFireRemoteAssetService.isChamsApplied(package: package, item: item) {
-                set.insert("chams.\(item.id)")
-            }
-        }
         for ch in FreeFireRemoteAssetService.modCharacters(forPackage: package) {
             for ver in ch.versions {
                 if FreeFireRemoteAssetService.isModVersionApplied(package: package, version: ver) {
@@ -1524,30 +1490,6 @@ private struct FreeFireGamePanel: View {
                 try FreeFireRemoteAssetService.restoreMenu(package: package, item: item)
             } else {
                 try FreeFireRemoteAssetService.applyMenu(package: package, item: item)
-            }
-        }
-    }
-
-    private func toggleAim(_ item: RemoteAimItem) {
-        let id = "aim.\(item.id)"
-        let on = appliedIDs.contains(id)
-        runWork(id: id, currentlyOn: on) {
-            if on {
-                try FreeFireRemoteAssetService.restoreAim(package: package, item: item)
-            } else {
-                try FreeFireRemoteAssetService.applyAim(package: package, item: item)
-            }
-        }
-    }
-
-    private func toggleChams(_ item: RemoteChamsItem) {
-        let id = "chams.\(item.id)"
-        let on = appliedIDs.contains(id)
-        runWork(id: id, currentlyOn: on) {
-            if on {
-                try FreeFireRemoteAssetService.restoreChams(package: package, item: item)
-            } else {
-                try FreeFireRemoteAssetService.applyChams(package: package, item: item)
             }
         }
     }
