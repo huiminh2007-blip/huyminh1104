@@ -144,6 +144,12 @@ private struct RefreshAuthResponse: Decodable {
     let idToken: String
     let userId: String
     let refreshToken: String
+
+    enum CodingKeys: String, CodingKey {
+        case idToken = "id_token"
+        case userId = "user_id"
+        case refreshToken = "refresh_token"
+    }
 }
 
 private struct FirestoreDocument: Decodable {
@@ -456,7 +462,8 @@ final class LicenseManager: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        let body = "grant_type=refresh_token&refresh_token=\(refreshToken.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? refreshToken)"
+        let formSafe = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~")
+        let body = "grant_type=refresh_token&refresh_token=\(refreshToken.addingPercentEncoding(withAllowedCharacters: formSafe) ?? refreshToken)"
         request.httpBody = Data(body.utf8)
 
         let (data, response) = try await URLSession.shared.data(for: request)
