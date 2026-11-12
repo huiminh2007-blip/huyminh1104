@@ -252,7 +252,7 @@ final class LicenseManager: ObservableObject {
 
     @Published private(set) var menuSecretKey = ""
     @Published private(set) var menuSecretPackage = ""
-    @Published private(set) var menuSecretMessage = "Mở game đến màn hình nhập secret, rồi quay lại đây lấy mã."
+    @Published private(set) var menuSecretMessage = "Đăng nhập key chính để tạo secret ghép menu."
     @Published private(set) var isGeneratingMenuSecret = false
     private var menuSecretNonce = ""
     private var menuSecretUntil = Date.distantPast
@@ -331,12 +331,7 @@ final class LicenseManager: ObservableObject {
     }
 
     private func generateAvailableMenuSecret() async {
-        for package in ["com.dts.freefireth", "com.dts.freefiremax"] {
-            if (try? FreeFireRemoteAssetService.menuChallenge(forPackage: package)) != nil {
-                await generateMenuSecret(forPackage: package)
-                return
-            }
-        }
+        await generateMenuSecret(forPackage: "shared")
     }
 
     func generateMenuSecret(forPackage package: String) async {
@@ -344,28 +339,21 @@ final class LicenseManager: ObservableObject {
         isGeneratingMenuSecret = true
         defer { isGeneratingMenuSecret = false }
         do {
-            let challenge = try FreeFireRemoteAssetService.menuChallenge(forPackage: package)
-            if menuSecretNonce == challenge.nonce && menuSecretPackage == package && Date() < menuSecretUntil && !menuSecretKey.isEmpty { return }
+            if Date() < menuSecretUntil && !menuSecretKey.isEmpty { return }
             menuSecretKey = ""
             let auth = try await authenticatedSession()
             authToken = auth.idToken; authUID = auth.localId
             let device = try LicenseKeychain.installationID()
             let info = try await bindAndActivate(activeKey, deviceID: device)
-            do {
-                let slot = try await firestoreRequest(method: "GET", path: "keys/\(escapedDocumentID(activeKey))/menuSlots/primary")
-                let oldVersion = Int(slot.fields?["pairVersion"]?.integerValue ?? "0") ?? 0
-                if oldVersion == info.menuPairVersion, let hash = slot.fields?["menuDeviceHash"]?.stringValue, hash != challenge.menuDeviceHash {
-                    throw LicenseKeyError.server("Key đã ghép một menu khác. Reset key trong admin để đổi máy.")
-                }
-            } catch LicenseKeyError.invalidKey { /* The primary menu slot has not been created yet. */ }
+            let nonce = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
             var bytes = [UInt8](repeating: 0, count: 16)
             guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else { throw LicenseKeyError.invalidResponse }
             let secret = bytes.map { String(format: "%02x", $0) }.joined()
             let hash = SHA256.hash(data: Data(secret.utf8)).map { String(format: "%02x", $0) }.joined()
             let fields: [String: Any] = [
                 "licenseKey": ["stringValue": activeKey], "appDeviceID": ["stringValue": device],
-                "appAuthUID": ["stringValue": authUID], "menuDeviceHash": ["stringValue": challenge.menuDeviceHash],
-                "nonce": ["stringValue": challenge.nonce], "pairVersion": ["integerValue": "\(info.menuPairVersion)"],
+                "appAuthUID": ["stringValue": authUID], "menuDeviceHash": ["stringValue": ""], "protocol": ["integerValue": "2"],
+                "nonce": ["stringValue": nonce], "pairVersion": ["integerValue": "\(info.menuPairVersion)"],
                 "consumedAt": ["nullValue": NSNull()], "menuAuthUID": ["stringValue": ""]
             ]
             let write: [String: Any] = [
@@ -378,9 +366,9 @@ final class LicenseManager: ObservableObject {
                 let a = secret.index(secret.startIndex, offsetBy: offset), b = secret.index(a, offsetBy: 4)
                 return String(secret[a..<b]).uppercased()
             }.joined(separator: "-")
-            menuSecretPackage = package; menuSecretNonce = challenge.nonce
+            menuSecretPackage = "shared"; menuSecretNonce = nonce
             menuSecretUntil = Date().addingTimeInterval(300)
-            menuSecretMessage = "Secret dùng một lần trong 5 phút, chỉ cho menu đang yêu cầu trên máy này."
+            menuSecretMessage = "Nhập secret một lần trong 5 phút để ghép menu. Máy nhập đầu tiên chiếm slot; những lần mở game sau tự xác minh cho tới khi key hết hạn hoặc bị reset."
         } catch {
             menuSecretKey = ""
             menuSecretMessage = error.localizedDescription
