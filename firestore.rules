@@ -58,18 +58,18 @@ service cloud.firestore {
     }
     function matchesTicket(keyId, slot) {
       let ticket = getAfter(/databases/$(database)/documents/menuTickets/$(slot.ticketHash)).data;
-      return slot.keys().hasOnly(['appDeviceID','appAuthUID','menuDeviceHash','menuAuthUID','nonce','ticketHash','pairedAt','pairVersion'])
+      return slot.keys().hasOnly(['appDeviceID','appAuthUID','menuDeviceHash','menuAuthUID','nonce','ticketHash','pairedAt','pairVersion','sessionProtocol'])
         && ticket.licenseKey == keyId && ticket.appDeviceID == slot.appDeviceID
-        && ticket.appAuthUID == slot.appAuthUID && ticket.menuDeviceHash == slot.menuDeviceHash
+        && ticket.appAuthUID == slot.appAuthUID && (ticket.menuDeviceHash == slot.menuDeviceHash || (ticket.get('protocol', 1) == 2 && ticket.menuDeviceHash == '' && slot.get('sessionProtocol', 1) == 2 && slot.menuDeviceHash.matches('[a-f0-9]{64}')))
         && ticket.nonce == slot.nonce && ticket.pairVersion == slot.pairVersion
         && ticket.menuAuthUID == request.auth.uid && slot.menuAuthUID == request.auth.uid
         && ticket.consumedAt == request.time && slot.pairedAt == request.time && ticketAlive(ticket);
     }
     match /menuTickets/{ticketHash} {
       allow create: if request.auth != null && ticketHash.matches('[a-f0-9]{64}')
-        && request.resource.data.keys().hasOnly(['licenseKey','appDeviceID','appAuthUID','menuDeviceHash','nonce','createdAt','consumedAt','menuAuthUID','pairVersion'])
+        && request.resource.data.keys().hasOnly(['licenseKey','appDeviceID','appAuthUID','menuDeviceHash','nonce','createdAt','consumedAt','menuAuthUID','pairVersion','protocol'])
         && request.resource.data.appAuthUID == request.auth.uid
-        && request.resource.data.menuDeviceHash.matches('[a-f0-9]{64}')
+        && (request.resource.data.menuDeviceHash.matches('[a-f0-9]{64}') || (request.resource.data.get('protocol', 1) == 2 && request.resource.data.menuDeviceHash == ''))
         && request.resource.data.nonce.matches('[a-f0-9]{32}')
         && request.resource.data.createdAt == request.time
         && request.resource.data.consumedAt == null && request.resource.data.menuAuthUID == ''
@@ -99,7 +99,7 @@ service cloud.firestore {
           && resource.data.pairVersion == get(/databases/$(database)/documents/keys/$(keyId)).data.get('menuPairVersion', 0));
         allow create: if request.auth != null && slotId == 'primary' && matchesTicket(keyId, request.resource.data);
         allow update: if request.auth != null && slotId == 'primary' && matchesTicket(keyId, request.resource.data)
-          && (resource.data.pairVersion != request.resource.data.pairVersion || resource.data.menuDeviceHash == request.resource.data.menuDeviceHash);
+          && (resource.data.pairVersion != request.resource.data.pairVersion || (resource.data.menuDeviceHash == request.resource.data.menuDeviceHash && (resource.data.get('sessionProtocol', 1) != 2 || resource.data.menuAuthUID == request.resource.data.menuAuthUID)));
         allow delete, list: if false;
       }
     }

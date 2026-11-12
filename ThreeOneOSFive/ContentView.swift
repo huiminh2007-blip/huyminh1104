@@ -1403,7 +1403,7 @@ private struct FreeFireGamePanel: View {
     private var menuSecretCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Secret key Mizora").font(.headline)
-            if licenseManager.menuSecretPackage == package && !licenseManager.menuSecretKey.isEmpty {
+            if !licenseManager.menuSecretKey.isEmpty {
                 Text(licenseManager.menuSecretKey).font(.system(size: 15, weight: .bold, design: .monospaced)).textSelection(.enabled)
                 Button("Sao chép secret key") { UIPasteboard.general.string = licenseManager.menuSecretKey }
             }

@@ -1,7 +1,1 @@
-Mizora now uses one app installation and one primary menu slot per license, including legacy licenses with maxUsers greater than one. Key duration still begins at first server activation.
-
-The game writes a local device challenge. After license login, the client issues a random 128-bit secret for that challenge; Firestore stores only its SHA256 identifier. It expires after five minutes and is consumed atomically with the primary menu slot. Menu access is checked every 25 seconds with a 60-second maximum cached lease. Admin reset increments menuPairVersion, invalidating previous menu slots and unused tickets without extending license duration.
-
-Free Fire and Free Fire MAX use the same Mizora Assembly and localConfig from MENU/FFTH/Mizora. MAX hardware compatibility has not been verified. Aim and Chams remain empty.
-
-Validation: actual IFix VM checks and 14 Firestore Emulator REST tests cover slot limits, first activation, concurrent app claims, replay, wrong device/nonce, expiry, revocation and reset. IPA compilation is checked by the repository workflow. No physical iPhone test yet. Local challenge binding prevents ordinary sharing; it is not hardware attestation against a modified client/device.
+Client generates a secret immediately after license login. No game challenge or installed/running game is needed. Redeem once within five minutes to bind the first menu device. Menu remembers its Firebase session and checks the server automatically on every restart. Parent license expiration, revocation or admin reset invalidates access. One app and one menu remain enforced; the first person holding the secret can claim the menu slot. Local session storage is not hardware attestation. No physical device test yet.
