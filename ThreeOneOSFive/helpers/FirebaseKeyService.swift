@@ -11,7 +11,7 @@ import CryptoKit
 /// security boundary.
 enum FirebaseKeyConfiguration {
     static var projectID: String {
-        (Bundle.main.object(forInfoDictionaryKey: "FirebaseProjectID") as? String ?? "quan-li-beu")
+        (Bundle.main.object(forInfoDictionaryKey: "FirebaseProjectID") as? String ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -33,6 +33,18 @@ private enum LicenseKeychain {
     private static let deviceAccount = "installation-id"
     private static let authUIDAccount = "firebase-auth-uid"
     private static let authRefreshTokenAccount = "firebase-refresh-token"
+    private struct ProjectSession: Codable {
+        let uid: String
+        let refreshToken: String
+    }
+    private static var projectSessionAccount: String { FirebaseSessionPolicy.account(projectID: FirebaseKeyConfiguration.projectID) }
+    private static var projectSession: ProjectSession? {
+        guard let raw = loadString(account: projectSessionAccount),
+              let session = try? JSONDecoder().decode(ProjectSession.self, from: Data(raw.utf8)),
+              !session.uid.isEmpty, !session.refreshToken.isEmpty else { return nil }
+        return session
+    }
+    static var hasProjectSession: Bool { projectSession != nil }
 
     static func loadActiveKey() -> String? {
         loadString(account: account)
@@ -43,20 +55,20 @@ private enum LicenseKeychain {
     }
 
     static func loadAuthUID() -> String? {
-        loadString(account: authUIDAccount)
+        projectSession?.uid ?? loadString(account: authUIDAccount)
     }
 
     static func loadRefreshToken() -> String? {
-        loadString(account: authRefreshTokenAccount)
+        projectSession?.refreshToken ?? loadString(account: authRefreshTokenAccount)
     }
 
     static func saveAuthSession(uid: String, refreshToken: String) throws {
-        try saveString(uid, account: authUIDAccount)
-        try saveString(refreshToken, account: authRefreshTokenAccount)
+        let data = try JSONEncoder().encode(ProjectSession(uid: uid, refreshToken: refreshToken))
+        try saveString(String(decoding: data, as: UTF8.self), account: projectSessionAccount)
     }
 
     static func deleteAuthSession() {
-        for account in [authUIDAccount, authRefreshTokenAccount] {
+        for account in [projectSessionAccount] {
             let query: [String: Any] = [
                 kSecClass as String: kSecClassGenericPassword,
                 kSecAttrService as String: service,
@@ -133,6 +145,13 @@ private enum LicenseKeychain {
 }
 
 // MARK: - Firebase anonymous auth + Firestore REST
+
+enum FirebaseSessionPolicy {
+    static func account(projectID: String) -> String { "firebase-session-v2.\(projectID)" }
+    static func canReplaceLegacy(hasProjectSession: Bool, serverMessage: String) -> Bool {
+        !hasProjectSession && serverMessage == "PROJECT_NUMBER_MISMATCH"
+    }
+}
 
 private struct AnonymousAuthResponse: Decodable {
     let idToken: String
@@ -413,6 +432,9 @@ final class LicenseManager: ObservableObject {
                     localId: refreshed.userId,
                     refreshToken: refreshed.refreshToken
                 )
+            } catch LicenseKeyError.server(let message) where FirebaseSessionPolicy.canReplaceLegacy(hasProjectSession: LicenseKeychain.hasProjectSession, serverMessage: message) {
+                // A legacy token from another project cannot identify this
+                // project's user. Leave it intact; create a scoped session below.
             } catch {
                 // Keep the installation identity on refresh/network failure.
                 // A new anonymous UID would lose this device's license slot.

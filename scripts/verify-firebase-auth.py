@@ -9,9 +9,17 @@ import tempfile
 import sys
 
 source = Path("ThreeOneOSFive/helpers/FirebaseKeyService.swift").read_text(encoding="utf-8")
-models = source[source.index("private struct AnonymousAuthResponse:"):source.index("private struct FirestoreDocument:")]
+models = source[source.index("enum FirebaseSessionPolicy {"):source.index("private struct FirestoreDocument:")]
 checks = r'''
 let decoder = JSONDecoder()
+guard FirebaseSessionPolicy.account(projectID: "old-project") != FirebaseSessionPolicy.account(projectID: "huyminh-458e1") else { fatalError("Projects share a session account") }
+guard FirebaseSessionPolicy.canReplaceLegacy(hasProjectSession: false, serverMessage: "PROJECT_NUMBER_MISMATCH") else { fatalError("Legacy foreign-project token is not recoverable") }
+for scoped in [false, true] {
+    for message in ["NETWORK_ERROR", "INVALID_REFRESH_TOKEN", "USER_DISABLED", "TOKEN_EXPIRED"] {
+        guard !FirebaseSessionPolicy.canReplaceLegacy(hasProjectSession: scoped, serverMessage: message) else { fatalError("Unrelated failure replaced device identity") }
+    }
+}
+guard !FirebaseSessionPolicy.canReplaceLegacy(hasProjectSession: true, serverMessage: "PROJECT_NUMBER_MISMATCH") else { fatalError("Scoped project configuration mismatch discarded identity") }
 let signup = Data(#"{"idToken":"signup-id","localId":"same-device-uid","refreshToken":"signup-refresh","expiresIn":"3600"}"#.utf8)
 private let first = try decoder.decode(AnonymousAuthResponse.self, from: signup)
 guard first.idToken == "signup-id", first.localId == "same-device-uid", first.refreshToken == "signup-refresh" else { fatalError("Anonymous sign-in response mismatch") }
